@@ -61,7 +61,20 @@ A Node.js CLI tool that converts ngeo-style shared URLs into geogirafe-style sha
 - `DB_CONNECTION`: PostgreSQL connection string
 - `INPUT_SOURCE`: 'database' or 'json'
 
-### ID Mappings in `mappings.json`:
+### ID Mappings:
+
+**Database Mappings** (Recommended, when `INPUT_SOURCE=database`):
+Automatically loaded from `main.treeitem` table:
+```sql
+main.treeitem (
+  type VARCHAR(10),  -- 'theme', 'l_wms', 'l_wmts', 'group', or 'basemap'
+  id INTEGER,        -- geogirafe ID
+  name VARCHAR       -- ngeo name
+)
+```
+
+**JSON Mappings** (Fallback, when `INPUT_SOURCE=json` or database unavailable):
+Load from `mappings.json` file:
 ```json
 {
   "themes": {
@@ -160,6 +173,7 @@ Final: {compressedState}-{compressedExtendedState}
 - 2025-10-13: **CORRECTED**: Using LZ-string compression (not zlib) to match geogirafe viewer
 - 2025-10-13: **ADDED**: ID mapping system via mappings.json for theme/layer/basemap conversion
 - 2025-10-13: **CORRECTED**: State structure matches geogirafe viewer serialization exactly
+- 2025-10-13: **UPDATED**: ID mappings now loaded from PostgreSQL main.treeitem table (replaces mappings.json)
 
 ## Tech Stack
 

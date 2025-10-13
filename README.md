@@ -28,11 +28,31 @@ cp .env.example .env
 Edit `.env` with your configuration:
 - `ORIGIN_URL`: Base URL to match (e.g., `https://sitn.ne.ch`)
 - `DESTINATION_URL`: Destination base URL (e.g., `https://demo.geogirafe.dev/sitn`)
-- `DB_SCHEMA`: Database schema (e.g., `geoportal`)
+- `DB_SCHEMA`: Database schema (e.g., `main`)
 - `DB_CONNECTION`: PostgreSQL connection string
-- `INPUT_SOURCE`: `database` or `json`
+- `INPUT_SOURCE`: `database` or `json` (defaults to `database`)
 
-3. **Create mappings.json** (Required for proper conversion):
+3. **Database ID Mappings** (Recommended):
+
+When `INPUT_SOURCE=database`, the converter automatically loads ID mappings from the `main.treeitem` table:
+
+```sql
+-- Table structure
+main.treeitem (
+  type VARCHAR(10),  -- 'theme', 'l_wms', 'l_wmts', 'group', or 'basemap'
+  id INTEGER,        -- geogirafe ID
+  name VARCHAR       -- ngeo name
+)
+```
+
+Mapping logic:
+- `type = 'theme'` → theme mappings
+- `type IN ('l_wms', 'l_wmts', 'group')` → layer mappings
+- `type = 'basemap'` → basemap mappings (optional)
+
+**Alternative: JSON File Mappings** (For testing):
+
+When `INPUT_SOURCE=json` or when database is unavailable, create `mappings.json`:
 ```bash
 cp mappings.json.example mappings.json
 ```
