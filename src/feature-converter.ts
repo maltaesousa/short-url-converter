@@ -1,8 +1,37 @@
-import DrawingFeature, { DrawingShape } from '@geogirafe/lib-geoportal/components/drawing/drawingFeature';
+export interface DrawingFeatureData {
+  n: string;        // name
+  sc: string;       // strokeColor
+  sw: number;       // strokeWidth
+  fc: string;       // fillColor
+  ls: string;       // lineStroke
+  as: string;       // arrowStyle
+  ap: string;       // arrowPosition
+  nfz: number;      // nameFontSize
+  mfz: number;      // measureFontSize
+  f: string;        // font
+  g: object;        // geojson
+  dn: boolean;      // displayName
+  dm: boolean;      // displayMeasure
+  nc: string;       // nameColor
+  mc: string;       // measureColor
+  s: boolean;       // selected
+  t: number;        // type (DrawingShape)
+}
+
+export enum DrawingShape {
+  Point = 0,
+  Polyline = 1,
+  Polygon = 2,
+  Square = 3,
+  Rectangle = 4,
+  Disk = 5,
+  FreehandPolyline = 6,
+  FreehandPolygon = 7
+}
 
 export class FeatureConverter {
-  convertNgeoFeaturesToDrawing(ngeoFeatures: any[]): DrawingFeature[] {
-    const drawingFeatures: DrawingFeature[] = [];
+  convertNgeoFeaturesToDrawing(ngeoFeatures: any[]): DrawingFeatureData[] {
+    const drawingFeatures: DrawingFeatureData[] = [];
 
     for (const feature of ngeoFeatures) {
       try {
@@ -18,7 +47,7 @@ export class FeatureConverter {
     return drawingFeatures;
   }
 
-  private convertSingleFeature(feature: any): DrawingFeature | null {
+  private convertSingleFeature(feature: any): DrawingFeatureData | null {
     if (!feature.geometry) {
       return null;
     }
@@ -39,12 +68,27 @@ export class FeatureConverter {
       properties: feature.properties || {}
     };
 
-    const name = feature.properties?.name || feature.properties?.title || undefined;
-    const drawingFeature = new DrawingFeature(drawingShape, geojson, name);
-
-    if (feature.style) {
-      this.applyStyle(drawingFeature, feature.style);
-    }
+    const name = feature.properties?.name || feature.properties?.title || 'Drawing';
+    
+    const drawingFeature: DrawingFeatureData = {
+      n: name,
+      sc: feature.style?.strokeColor ? this.parseColor(feature.style.strokeColor) : '#3399CC',
+      sw: feature.style?.strokeWidth !== undefined ? parseFloat(feature.style.strokeWidth) : 2,
+      fc: feature.style?.fillColor ? this.parseColor(feature.style.fillColor) : '#3399CC',
+      ls: 'full',
+      as: 'none',
+      ap: 'whole',
+      nfz: 14,
+      mfz: 12,
+      f: 'Arial',
+      g: geojson,
+      dn: feature.style?.name === 'true' || feature.style?.name === true || false,
+      dm: true,
+      nc: '#000000',
+      mc: '#000000',
+      s: false,
+      t: drawingShape
+    };
 
     return drawingFeature;
   }
@@ -76,24 +120,6 @@ export class FeatureConverter {
     };
 
     return normalizeMap[geomType] || geomType;
-  }
-
-  private applyStyle(drawingFeature: DrawingFeature, style: any): void {
-    if (style.strokeColor) {
-      drawingFeature.strokeColor = this.parseColor(style.strokeColor);
-    }
-    
-    if (style.strokeWidth !== undefined) {
-      drawingFeature.strokeWidth = parseFloat(style.strokeWidth);
-    }
-    
-    if (style.fillColor) {
-      drawingFeature.fillColor = this.parseColor(style.fillColor);
-    }
-
-    if (style.name !== undefined) {
-      drawingFeature.displayName = style.name === 'true' || style.name === true;
-    }
   }
 
   private parseColor(color: string): string {

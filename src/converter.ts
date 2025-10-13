@@ -2,7 +2,7 @@ import { NgeoParser } from './ngeo-parser';
 import { GeoGirafeSerializer } from './geogirafe-serializer';
 import { FeatureConverter } from './feature-converter';
 import { Logger } from './logger';
-import { UrlRecord, ConversionResult, NgeoState, State } from './types';
+import { UrlRecord, ConversionResult, NgeoState, GeoGirafeState } from './types';
 
 export class UrlConverter {
   private ngeoParser: NgeoParser;

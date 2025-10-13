@@ -1,71 +1,61 @@
-import { NgeoState, State, MapPosition, DrawingFeature } from './types';
-import StateSerializer from '@geogirafe/lib-geoportal/tools/share/stateserializer';
-import StateManager from '@geogirafe/lib-geoportal/tools/state/statemanager';
-import MapPositionSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/mappositionserializer';
-import BasemapSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/basemapserializer';
-import LayerConfigSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/layerconfigserializer';
-import { DrawingState } from '@geogirafe/lib-geoportal/components/drawing/drawingFeature';
+import { NgeoState, GeoGirafeState, DrawingFeatureData } from './types';
+import * as zlib from 'zlib';
+import { promisify } from 'util';
+
+const deflate = promisify(zlib.deflate);
 
 export class GeoGirafeSerializer {
-  private stateSerializer: StateSerializer;
-  private stateManager: StateManager;
-
-  constructor() {
-    this.stateManager = new StateManager('converter');
-    this.stateSerializer = new StateSerializer('converter');
-    
-    this.stateSerializer.addSerializer(MapPosition, new MapPositionSerializer());
-    this.stateSerializer.addSerializer(Object, new BasemapSerializer());
-    this.stateSerializer.addSerializer(Object, new LayerConfigSerializer());
-  }
-
-  convertToState(ngeoState: NgeoState, drawingFeatures?: DrawingFeature[]): State {
-    const state = this.stateManager.state;
+  convertToState(ngeoState: NgeoState, drawingFeatures?: DrawingFeatureData[]): GeoGirafeState {
+    const ggState: GeoGirafeState = {};
 
     if (ngeoState.mapX !== undefined && ngeoState.mapY !== undefined) {
-      state.position = new MapPosition();
-      state.position.center = [ngeoState.mapX, ngeoState.mapY];
+      ggState.position = {
+        center: [ngeoState.mapX, ngeoState.mapY]
+      };
       
       if (ngeoState.mapZoom !== undefined) {
-        state.position.zoom = ngeoState.mapZoom;
+        ggState.position.zoom = ngeoState.mapZoom;
       }
     }
 
     if (ngeoState.theme) {
-      state.extendedState['theme'] = { name: ngeoState.theme };
+      ggState.theme = ngeoState.theme;
     }
 
     if (ngeoState.baselayer) {
-      state.extendedState['basemap'] = { ref: ngeoState.baselayer };
+      ggState.basemap = ngeoState.baselayer;
     }
 
     if (ngeoState.layers && ngeoState.layers.length > 0) {
-      state.extendedState['layers'] = { list: ngeoState.layers };
+      ggState.layers = ngeoState.layers;
     }
 
     if (ngeoState.opacity && Object.keys(ngeoState.opacity).length > 0) {
-      state.extendedState['opacity'] = ngeoState.opacity;
+      ggState.opacity = ngeoState.opacity;
     }
 
     if (ngeoState.dimensions && Object.keys(ngeoState.dimensions).length > 0) {
-      state.extendedState['dimensions'] = ngeoState.dimensions;
+      ggState.dimensions = ngeoState.dimensions;
     }
 
     if (drawingFeatures && drawingFeatures.length > 0) {
-      const drawingState = new DrawingState();
-      drawingState.features = drawingFeatures;
-      state.extendedState['drawing'] = drawingState;
+      ggState.drawing = {
+        features: drawingFeatures
+      };
     }
 
-    return state;
+    return ggState;
   }
 
-  async serializeToUrl(state: State, baseUrl: string): Promise<string> {
-    const serializedState = this.stateSerializer.getSerializedState();
-    return `${baseUrl}#${serializedState}`;
-  }
+  async serializeToUrl(state: GeoGirafeState, baseUrl: string): Promise<string> {
+    const stateJson = JSON.stringify(state);
+    
+    const compressed = await deflate(Buffer.from(stateJson, 'utf-8'));
+    const base64 = compressed.toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
-  getSerializedHash(): string {
-    return this.stateSerializer.getSerializedState();
+    return `${baseUrl}#${base64}`;
   }
 }

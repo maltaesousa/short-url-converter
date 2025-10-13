@@ -1,7 +1,3 @@
-import State from '@geogirafe/lib-geoportal/tools/state/state';
-import MapPosition from '@geogirafe/lib-geoportal/tools/state/mapposition';
-import DrawingFeature, { DrawingShape } from '@geogirafe/lib-geoportal/components/drawing/drawingFeature';
-
 export interface Config {
   originUrl: string;
   destinationUrl: string;
@@ -29,6 +25,41 @@ export interface NgeoState {
   [key: string]: any;
 }
 
+export interface GeoGirafeState {
+  position?: {
+    center: [number, number];
+    zoom?: number;
+  };
+  theme?: string;
+  basemap?: string;
+  layers?: string[];
+  opacity?: Record<string, number>;
+  dimensions?: Record<string, string>;
+  drawing?: {
+    features: DrawingFeatureData[];
+  };
+}
+
+export interface DrawingFeatureData {
+  n: string;        // name
+  sc: string;       // strokeColor
+  sw: number;       // strokeWidth
+  fc: string;       // fillColor
+  ls: string;       // lineStroke
+  as: string;       // arrowStyle
+  ap: string;       // arrowPosition
+  nfz: number;      // nameFontSize
+  mfz: number;      // measureFontSize
+  f: string;        // font
+  g: object;        // geojson
+  dn: boolean;      // displayName
+  dm: boolean;      // displayMeasure
+  nc: string;       // nameColor
+  mc: string;       // measureColor
+  s: boolean;       // selected
+  t: number;        // type (DrawingShape)
+}
+
 export interface ConversionResult {
   ref: string;
   success: boolean;
@@ -44,5 +75,3 @@ export interface ConversionStats {
   skipped: number;
   failed: number;
 }
-
-export { State, MapPosition, DrawingFeature, DrawingShape };
