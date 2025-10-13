@@ -22,8 +22,6 @@ export class MappingLoader {
       const query = `
         SELECT type, id, name 
         FROM ${this.schema}.treeitem 
-        WHERE type IN ('theme', 'l_wms', 'l_wmts', 'group')
-        ORDER BY type, name
       `;
       
       const result = await this.pool.query(query);

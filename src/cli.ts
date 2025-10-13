@@ -10,8 +10,8 @@ async function main() {
   const args = process.argv.slice(2);
   const logger = new Logger();
 
-  const originUrl = process.env.ORIGIN_URL || 'https://sitn.ne.ch';
-  const destinationUrl = process.env.DESTINATION_URL || 'https://demo.geogirafe.dev/sitn';
+  const originUrl = process.env.ORIGIN_URL;
+  const destinationUrl = process.env.DESTINATION_URL;
   const dbSchema = process.env.DB_SCHEMA || 'main';
   const dbConnection = process.env.DB_CONNECTION || '';
   const inputSource = process.env.INPUT_SOURCE || 'database';

@@ -3,7 +3,7 @@ import { GeoGirafeSerializer } from './geogirafe-serializer';
 import { FeatureConverter } from './feature-converter';
 import { Logger } from './logger';
 import { MappingLoader, IdMappings } from './mapping-loader';
-import { UrlRecord, ConversionResult, Config } from './types';
+import { UrlRecord, ConversionResult } from './types';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,44 +15,34 @@ export class UrlConverter {
   private logger: Logger;
   private originUrl: string;
   private destinationUrl: string;
-  private mappingLoader: MappingLoader | null = null;
-  private useDatabase: boolean;
+  private mappingLoader: MappingLoader;
 
   constructor() {
-    this.originUrl = process.env.ORIGIN_URL || 'https://sitn.ne.ch';
-    this.destinationUrl = process.env.DESTINATION_URL || 'https://demo.geogirafe.dev/sitn';
-    // Default to database mode unless explicitly set to 'json'
-    this.useDatabase = process.env.INPUT_SOURCE !== 'json';
+    this.originUrl = process.env.ORIGIN_URL;
+    this.destinationUrl = process.env.DESTINATION_URL;
     
     this.ngeoParser = new NgeoParser();
     this.featureConverter = new FeatureConverter();
     this.logger = new Logger();
     
     // Initialize mapping loader if using database
-    if (this.useDatabase) {
-      const dbConnection = process.env.DB_CONNECTION;
-      const dbSchema = process.env.DB_SCHEMA || 'main';
-      
-      if (!dbConnection) {
-        throw new Error('DB_CONNECTION environment variable is required when using database mappings');
-      }
-      
-      this.mappingLoader = new MappingLoader(dbConnection, dbSchema);
+    const dbConnection = process.env.DB_CONNECTION;
+    const dbSchema = process.env.DB_SCHEMA || 'main';
+    
+    if (!dbConnection) {
+      throw new Error('DB_CONNECTION environment variable is required when using database mappings');
     }
+    
+    this.mappingLoader = new MappingLoader(dbConnection, dbSchema);
+
   }
 
   async initialize(): Promise<void> {
     let mappings: IdMappings;
     
-    if (this.useDatabase && this.mappingLoader) {
-      // Load mappings from database
-      mappings = await this.mappingLoader.loadMappings();
-      const basemaps = await this.mappingLoader.loadBasemaps();
-      mappings.basemaps = basemaps;
-    } else {
-      // Fallback to JSON file
-      mappings = this.loadMappingsFromFile();
-    }
+    mappings = await this.mappingLoader.loadMappings();
+    const basemaps = await this.mappingLoader.loadBasemaps();
+    mappings.basemaps = basemaps;
     
     this.ggSerializer = new GeoGirafeSerializer(
       mappings.themes,
@@ -61,29 +51,8 @@ export class UrlConverter {
     );
   }
 
-  private loadMappingsFromFile(): IdMappings {
-    try {
-      const mappings = require('../mappings.json');
-      console.log('[INFO] Using mappings from mappings.json file');
-      return {
-        themes: mappings.themes || {},
-        layers: mappings.layers || {},
-        basemaps: mappings.basemaps || {}
-      };
-    } catch {
-      console.warn('[WARN] No mappings.json file found. Using empty mappings. Theme/layer/basemap names will not be converted to IDs.');
-      return {
-        themes: {},
-        layers: {},
-        basemaps: {}
-      };
-    }
-  }
-
   async close(): Promise<void> {
-    if (this.mappingLoader) {
-      await this.mappingLoader.close();
-    }
+    await this.mappingLoader.close();
   }
 
   async convert(record: UrlRecord, debug = false): Promise<ConversionResult> {

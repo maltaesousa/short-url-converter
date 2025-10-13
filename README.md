@@ -32,51 +32,6 @@ Edit `.env` with your configuration:
 - `DB_CONNECTION`: PostgreSQL connection string
 - `INPUT_SOURCE`: `database` or `json` (defaults to `database`)
 
-3. **Database ID Mappings** (Recommended):
-
-When `INPUT_SOURCE=database`, the converter automatically loads ID mappings from the `main.treeitem` table:
-
-```sql
--- Table structure
-main.treeitem (
-  type VARCHAR(10),  -- 'theme', 'l_wms', 'l_wmts', 'group', or 'basemap'
-  id INTEGER,        -- geogirafe ID
-  name VARCHAR       -- ngeo name
-)
-```
-
-Mapping logic:
-- `type = 'theme'` → theme mappings
-- `type IN ('l_wms', 'l_wmts', 'group')` → layer mappings
-- `type = 'basemap'` → basemap mappings (optional)
-
-**Alternative: JSON File Mappings** (For testing):
-
-When `INPUT_SOURCE=json` or when database is unavailable, create `mappings.json`:
-```bash
-cp mappings.json.example mappings.json
-```
-
-Edit `mappings.json` with your theme, layer, and basemap ID mappings:
-```json
-{
-  "themes": {
-    "cadastre": 1,
-    "environnement": 2
-  },
-  "layers": {
-    "LayerName1": 100,
-    "LayerName2": 101
-  },
-  "basemaps": {
-    "plan_ville": 10,
-    "orthophoto": 11
-  }
-}
-```
-
-**Important**: Without proper ID mappings, themes/layers/basemaps cannot be converted to the geogirafe layer structure and will be logged as unconvertible.
-
 ## Usage
 
 ### Test Mode (using test.json)
@@ -225,28 +180,6 @@ Converted: 3
 Skipped: 0
 Failed: 1
 ```
-
-Test cases (`test.json`):
-- **test1**: Basic URL with position and baselayer
-- **test2**: URL with multiple layers
-- **test3**: URL with drawing features (rl_features)
-- **test4**: Invalid URL (failed - different origin)
-
-## Key Differences from Initial Implementation
-
-1. **Theme Storage**: Theme is now correctly stored as a layer object in the layers array (not as a separate "theme" property)
-2. **Layer Structure**: Uses SharedLayer objects with id, order, checked, isExpanded, children, excludedChildrenIds
-3. **ID Mappings**: Requires theme/layer/basemap name-to-ID mappings via mappings.json
-4. **Compression**: Uses LZ-string (same as geogirafe viewer) instead of zlib
-5. **State Serialization**: Matches geogirafe viewer's serialization structure exactly
-
-## Tech Stack
-
-- **Runtime**: Node.js 20
-- **Language**: TypeScript (CommonJS)
-- **Database**: PostgreSQL (pg driver)
-- **CLI**: tsx for TypeScript execution
-- **Compression**: lz-string (browser-compatible Base64)
 
 ## License
 
