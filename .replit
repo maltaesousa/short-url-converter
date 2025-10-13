@@ -4,3 +4,42 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "CLI Usage"
+
+[[workflows.workflow]]
+name = "CLI Usage"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+echo \"=== ngeo to geogirafe URL Converter ===
+
+Usage:
+  npm start <ref>           - Convert single URL (debug mode)
+  npm start -- --batch      - Convert all URLs from database
+  npm start -- --test <ref> - Convert from test.json (debug)
+  npm start -- --test --batch - Convert all from test.json
+
+Configuration:
+  1. Copy .env.example to .env
+  2. Set ORIGIN_URL, DESTINATION_URL, DB_CONNECTION, etc.
+
+Examples:
+  npm start test1
+  npm start -- --test test1
+  npm start -- --batch\" && sleep infinity"""
+
+[workflows.workflow.metadata]
+outputType = "console"
