@@ -1,3 +1,7 @@
+import State from '@geogirafe/lib-geoportal/tools/state/state';
+import MapPosition from '@geogirafe/lib-geoportal/tools/state/mapposition';
+import DrawingFeature, { DrawingShape } from '@geogirafe/lib-geoportal/components/drawing/drawingFeature';
+
 export interface Config {
   originUrl: string;
   destinationUrl: string;
@@ -25,18 +29,6 @@ export interface NgeoState {
   [key: string]: any;
 }
 
-export interface GeoGirafeState {
-  x?: number;
-  y?: number;
-  z?: number;
-  t?: string;
-  bl?: string;
-  l?: string[];
-  o?: Record<string, number>;
-  f?: any[];
-  d?: Record<string, string>;
-}
-
 export interface ConversionResult {
   ref: string;
   success: boolean;
@@ -52,3 +44,5 @@ export interface ConversionStats {
   skipped: number;
   failed: number;
 }
+
+export { State, MapPosition, DrawingFeature, DrawingShape };

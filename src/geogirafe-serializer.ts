@@ -1,102 +1,71 @@
-import { GeoGirafeState, NgeoState } from './types';
-import * as zlib from 'zlib';
-import { promisify } from 'util';
-
-const deflate = promisify(zlib.deflate);
+import { NgeoState, State, MapPosition, DrawingFeature } from './types';
+import StateSerializer from '@geogirafe/lib-geoportal/tools/share/stateserializer';
+import StateManager from '@geogirafe/lib-geoportal/tools/state/statemanager';
+import MapPositionSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/mappositionserializer';
+import BasemapSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/basemapserializer';
+import LayerConfigSerializer from '@geogirafe/lib-geoportal/tools/share/serializers/layerconfigserializer';
+import { DrawingState } from '@geogirafe/lib-geoportal/components/drawing/drawingFeature';
 
 export class GeoGirafeSerializer {
-  async convertState(ngeoState: NgeoState): Promise<GeoGirafeState> {
-    const ggState: GeoGirafeState = {};
+  private stateSerializer: StateSerializer;
+  private stateManager: StateManager;
 
-    if (ngeoState.mapX !== undefined) {
-      ggState.x = Math.round(ngeoState.mapX);
-    }
+  constructor() {
+    this.stateManager = new StateManager('converter');
+    this.stateSerializer = new StateSerializer('converter');
+    
+    this.stateSerializer.addSerializer(MapPosition, new MapPositionSerializer());
+    this.stateSerializer.addSerializer(Object, new BasemapSerializer());
+    this.stateSerializer.addSerializer(Object, new LayerConfigSerializer());
+  }
 
-    if (ngeoState.mapY !== undefined) {
-      ggState.y = Math.round(ngeoState.mapY);
-    }
+  convertToState(ngeoState: NgeoState, drawingFeatures?: DrawingFeature[]): State {
+    const state = this.stateManager.state;
 
-    if (ngeoState.mapZoom !== undefined) {
-      ggState.z = ngeoState.mapZoom;
+    if (ngeoState.mapX !== undefined && ngeoState.mapY !== undefined) {
+      state.position = new MapPosition();
+      state.position.center = [ngeoState.mapX, ngeoState.mapY];
+      
+      if (ngeoState.mapZoom !== undefined) {
+        state.position.zoom = ngeoState.mapZoom;
+      }
     }
 
     if (ngeoState.theme) {
-      ggState.t = ngeoState.theme;
+      state.extendedState['theme'] = { name: ngeoState.theme };
     }
 
     if (ngeoState.baselayer) {
-      ggState.bl = ngeoState.baselayer;
+      state.extendedState['basemap'] = { ref: ngeoState.baselayer };
     }
 
     if (ngeoState.layers && ngeoState.layers.length > 0) {
-      ggState.l = ngeoState.layers;
+      state.extendedState['layers'] = { list: ngeoState.layers };
     }
 
     if (ngeoState.opacity && Object.keys(ngeoState.opacity).length > 0) {
-      ggState.o = ngeoState.opacity;
-    }
-
-    if (ngeoState.features) {
-      ggState.f = [];
+      state.extendedState['opacity'] = ngeoState.opacity;
     }
 
     if (ngeoState.dimensions && Object.keys(ngeoState.dimensions).length > 0) {
-      ggState.d = ngeoState.dimensions;
+      state.extendedState['dimensions'] = ngeoState.dimensions;
     }
 
-    return ggState;
+    if (drawingFeatures && drawingFeatures.length > 0) {
+      const drawingState = new DrawingState();
+      drawingState.features = drawingFeatures;
+      state.extendedState['drawing'] = drawingState;
+    }
+
+    return state;
   }
 
-  async serializeToUrl(state: GeoGirafeState, baseUrl: string): Promise<string> {
-    const stateJson = JSON.stringify(state);
-    
-    const compressed = await deflate(Buffer.from(stateJson, 'utf-8'));
-    const base64 = compressed.toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    return `${baseUrl}#${base64}`;
+  async serializeToUrl(state: State, baseUrl: string): Promise<string> {
+    const serializedState = this.stateSerializer.getSerializedState();
+    return `${baseUrl}#${serializedState}`;
   }
 
-  serializeToSimpleHash(state: GeoGirafeState): string {
-    const parts: string[] = [];
-
-    if (state.x !== undefined && state.y !== undefined) {
-      parts.push(`x=${state.x}`);
-      parts.push(`y=${state.y}`);
-    }
-
-    if (state.z !== undefined) {
-      parts.push(`z=${state.z}`);
-    }
-
-    if (state.t) {
-      parts.push(`t=${encodeURIComponent(state.t)}`);
-    }
-
-    if (state.bl) {
-      parts.push(`bl=${encodeURIComponent(state.bl)}`);
-    }
-
-    if (state.l && state.l.length > 0) {
-      parts.push(`l=${state.l.map(encodeURIComponent).join(',')}`);
-    }
-
-    if (state.o && Object.keys(state.o).length > 0) {
-      const opacityStr = Object.entries(state.o)
-        .map(([k, v]) => `${encodeURIComponent(k)}:${v}`)
-        .join(',');
-      parts.push(`o=${opacityStr}`);
-    }
-
-    if (state.d && Object.keys(state.d).length > 0) {
-      const dimStr = Object.entries(state.d)
-        .map(([k, v]) => `${encodeURIComponent(k)}:${encodeURIComponent(v)}`)
-        .join(',');
-      parts.push(`d=${dimStr}`);
-    }
-
-    return parts.join('&');
+  getSerializedHash(): string {
+    return this.stateSerializer.getSerializedState();
   }
 }

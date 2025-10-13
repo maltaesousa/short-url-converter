@@ -1,11 +1,13 @@
 import { NgeoParser } from './ngeo-parser';
 import { GeoGirafeSerializer } from './geogirafe-serializer';
+import { FeatureConverter } from './feature-converter';
 import { Logger } from './logger';
-import { UrlRecord, ConversionResult, NgeoState, GeoGirafeState } from './types';
+import { UrlRecord, ConversionResult, NgeoState, State } from './types';
 
 export class UrlConverter {
   private ngeoParser: NgeoParser;
   private ggSerializer: GeoGirafeSerializer;
+  private featureConverter: FeatureConverter;
   private logger: Logger;
   private originUrl: string;
   private destinationUrl: string;
@@ -13,6 +15,7 @@ export class UrlConverter {
   constructor(originUrl: string, destinationUrl: string, logger: Logger) {
     this.ngeoParser = new NgeoParser();
     this.ggSerializer = new GeoGirafeSerializer();
+    this.featureConverter = new FeatureConverter();
     this.logger = logger;
     this.originUrl = originUrl;
     this.destinationUrl = destinationUrl;
@@ -56,15 +59,30 @@ export class UrlConverter {
       this.logger.debug('Parsed ngeo state:', ngeoState);
     }
 
-    const ggState = await this.ggSerializer.convertState(ngeoState);
+    let drawingFeatures;
+    const unconvertibleParts: string[] = [];
     
-    if (debugMode) {
-      this.logger.debug('Converted geogirafe state:', ggState);
+    if (ngeoState.features) {
+      try {
+        const parsedFeatures = this.ngeoParser.decodeFeatureHash(ngeoState.features);
+        if (parsedFeatures && parsedFeatures.length > 0) {
+          drawingFeatures = this.featureConverter.convertNgeoFeaturesToDrawing(parsedFeatures);
+          if (debugMode) {
+            this.logger.debug(`Converted ${drawingFeatures.length} drawing features`);
+          }
+        }
+      } catch (error) {
+        unconvertibleParts.push('features (error parsing)');
+        if (debugMode) {
+          this.logger.debug('Error converting features:', error);
+        }
+      }
     }
 
-    const unconvertibleParts: string[] = [];
-    if (ngeoState.features) {
-      unconvertibleParts.push('features (drawing layers)');
+    const ggState = this.ggSerializer.convertToState(ngeoState, drawingFeatures);
+    
+    if (debugMode) {
+      this.logger.debug('Converted geogirafe state (position, layers, etc.)');
     }
 
     try {
