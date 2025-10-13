@@ -1,0 +1,17 @@
+[
+  {
+    "ref": "test1",
+    "url": "https://sitn.ne.ch/theme/cadastre?map_x=2550000&map_y=1205000&map_zoom=8&baselayer_ref=plan_ville",
+    "expected": "https://demo.geogirafe.dev/sitn#eJyrVkrOKU0uySxLVbJSMNQz0DMwNNJRqOUCADHnBw4"
+  },
+  {
+    "ref": "test2",
+    "url": "https://sitn.ne.ch/theme/environnement?map_x=2560000&map_y=1210000&map_zoom=10&tree_groups=Layers,Filters",
+    "expected": "https://demo.geogirafe.dev/sitn#eJyrVkrOKU0uySxLVbJSMNAz0DM0NNNRqOUCADYzBxI"
+  },
+  {
+    "ref": "test3",
+    "url": "https://example.com/invalid",
+    "expected": null
+  }
+]

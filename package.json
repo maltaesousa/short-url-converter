@@ -1,0 +1,22 @@
+{
+  "name": "ngeo-to-geogirafe-converter",
+  "version": "1.0.0",
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/cli.ts",
+    "test": "npm start -- --test"
+  },
+  "keywords": ["ngeo", "geogirafe", "url-converter", "cli"],
+  "author": "",
+  "license": "ISC",
+  "description": "CLI tool to convert ngeo-style URLs to geogirafe-style URLs",
+  "dependencies": {
+    "@types/node": "^24.7.2",
+    "@types/pg": "^8.15.5",
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
