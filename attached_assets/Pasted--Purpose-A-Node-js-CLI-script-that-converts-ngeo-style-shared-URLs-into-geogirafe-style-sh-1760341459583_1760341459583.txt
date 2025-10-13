@@ -1,0 +1,97 @@
+### Purpose
+
+A Node.js CLI script that converts **ngeo-style shared URLs** into **geogirafe-style shared URLs**. Both libraries use URL-based state sharing. The script reads URLs from either:
+
+* A **PostgreSQL table**, or
+* A **local JSON file** (for testing)
+
+### Architecture
+
+#### Input Sources (Configurable):
+
+1. **PostgreSQL Database**
+
+   * **Table name**: `shorturl`
+   * **Schema**: Configurable via `.env`
+   * **Columns**:
+
+     * `ref`: unique identifier (used for short URLs)
+     * `url`: full URL to convert
+
+2. **JSON File** (Test mode)
+
+   * Structure:
+
+     ```json
+     [
+       {
+         "ref": "test1",
+         "url": "https://sitn.ne.ch/prepub/theme/cadastre?...",
+         "expected": "https://demo.geogirafe.dev/sitn#hash"
+       }
+     ]
+     ```
+
+#### Execution Modes:
+
+* **Single `ref` mode (debug)**:
+
+  * Only one record (from DB or JSON)
+  * Verbose logs (parsed state, serializations, etc.)
+
+* **Batch mode (info)**:
+
+  * All records
+  * Only statistics and errors logged
+  * Summary log at the end
+
+#### Environment Configuration (`.env`)
+
+| Key               | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| `ORIGIN_URL`      | Base URL to match and accept (`https://sitn.ne.ch`)  |
+| `DESTINATION_URL` | Base destination (`https://demo.geogirafe.dev/sitn`) |
+| `DB_SCHEMA`       | DB schema (e.g., `geoportal`)                        |
+| `DB_CONNECTION`   | Full connection string                               |
+
+### Conversion Steps per URL
+
+1. **Check if URL matches the `ORIGIN_URL`**
+
+   * If not, skip and log: `URL origin does not match`
+   * Rule: `ORIGIN_URL` is a prefix match. The "entrypoint" starts at `/theme/...`
+
+2. **Parse the ngeo URL**
+
+   * Use `Permalink.js` logic: https://github.com/camptocamp/ngeo/blob/2.9/src/permalink/Permalink.js
+   * Pay attention for special logics in Permalink.js, for instance for feature deserialization, refer to `FeatureHash.js`: https://github.com/camptocamp/ngeo/blob/2.9/src/format/FeatureHash.js
+   * Pay attention not everything is a param, theme in ngeo is put in the URL path, for instance `/theme/cadastre`
+   * If theme is present, it has to be "deserialized" and re-serialized in the final url. If not, ignore it.
+
+3. **Log (debug mode)**:
+
+   * Parsed result in geogirafe-style state (log only what's serialized into the URL). The structure is described here: https://gitlab.com/geogirafe/gg-viewer/-/blob/main/src/tools/state/state.ts
+
+4. **Serialize the geogirafe state and compress it**
+
+   * Use `stateserializer.ts`: https://gitlab.com/geogirafe/gg-viewer/-/blob/main/src/tools/state/state.ts and its serializers depedencies
+   * Result: `DESTINATION_URL#<hash>`
+
+6. **Output:**
+
+   * In batch: statistics (total, converted, skipped, failed)
+   * In debug: full URL log, intermediate states
+
+7. **Log failures**
+
+   * Any unconverted parts (e.g., drawing layers not compatible) should be logged in a file (`unconvertible.log`)
+
+8. **Log converted URL**
+
+   * Successful or partials conversions should be logged in converted.csv with two columns: ref, new_url
+
+Additional points:
+
+   * If an URL fails, just continue with next one.
+   * Log to current directory
+   * When running from json, expected value should be compared to what was converted by the script.
