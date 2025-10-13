@@ -2,7 +2,10 @@ import { NgeoParser } from './ngeo-parser';
 import { GeoGirafeSerializer } from './geogirafe-serializer';
 import { FeatureConverter } from './feature-converter';
 import { Logger } from './logger';
-import { UrlRecord, ConversionResult, NgeoState, GeoGirafeState } from './types';
+import { UrlRecord, ConversionResult, Config } from './types';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 export class UrlConverter {
   private ngeoParser: NgeoParser;
@@ -12,119 +15,135 @@ export class UrlConverter {
   private originUrl: string;
   private destinationUrl: string;
 
-  constructor(originUrl: string, destinationUrl: string, logger: Logger) {
+  constructor() {
+    this.originUrl = process.env.ORIGIN_URL || 'https://sitn.ne.ch';
+    this.destinationUrl = process.env.DESTINATION_URL || 'https://demo.geogirafe.dev/sitn';
+    
     this.ngeoParser = new NgeoParser();
-    this.ggSerializer = new GeoGirafeSerializer();
+    
+    const mappings = this.loadMappings();
+    this.ggSerializer = new GeoGirafeSerializer(
+      mappings.themes,
+      mappings.layers,
+      mappings.basemaps
+    );
+    
     this.featureConverter = new FeatureConverter();
-    this.logger = logger;
-    this.originUrl = originUrl;
-    this.destinationUrl = destinationUrl;
+    this.logger = new Logger();
   }
 
-  async convert(record: UrlRecord, debugMode: boolean = false): Promise<ConversionResult> {
-    const { ref, url } = record;
+  private loadMappings(): {
+    themes: Record<string, number>;
+    layers: Record<string, number>;
+    basemaps: Record<string, number>;
+  } {
+    try {
+      const mappings = require('../mappings.json');
+      return {
+        themes: mappings.themes || {},
+        layers: mappings.layers || {},
+        basemaps: mappings.basemaps || {}
+      };
+    } catch {
+      console.warn('[WARN] No mappings.json file found. Using empty mappings. Theme/layer/basemap names will not be converted to IDs.');
+      return {
+        themes: {},
+        layers: {},
+        basemaps: {}
+      };
+    }
+  }
 
-    if (debugMode) {
+  async convert(record: UrlRecord, debug = false): Promise<ConversionResult> {
+    const { ref, url } = record;
+    
+    if (debug) {
       this.logger.debug(`Converting URL for ref: ${ref}`);
       this.logger.debug(`Original URL: ${url}`);
-    }
-
-    if (!url.startsWith(this.originUrl)) {
-      const error = 'URL origin does not match';
-      if (debugMode) {
-        this.logger.debug(error);
-      }
-      return {
-        ref,
-        success: false,
-        originalUrl: url,
-        error
-      };
     }
 
     const ngeoState = this.ngeoParser.parseUrl(url, this.originUrl);
     
     if (!ngeoState) {
-      const error = 'Failed to parse ngeo URL';
-      this.logger.logError(ref, error);
+      if (debug) {
+        this.logger.debug('URL origin does not match');
+      }
       return {
         ref,
         success: false,
         originalUrl: url,
-        error
+        error: 'URL origin does not match configured ORIGIN_URL'
       };
     }
 
-    if (debugMode) {
-      this.logger.debug('Parsed ngeo state:', ngeoState);
+    if (debug) {
+      this.logger.debug('Parsed ngeo state:');
+      this.logger.debug(JSON.stringify(ngeoState, null, 2));
     }
 
-    let drawingFeatures;
-    const unconvertibleParts: string[] = [];
-    
+    let ngeoFeatures = undefined;
+    let drawingFeatures = undefined;
     if (ngeoState.features) {
       try {
-        const parsedFeatures = this.ngeoParser.decodeFeatureHash(ngeoState.features);
-        if (parsedFeatures && parsedFeatures.length > 0) {
-          drawingFeatures = this.featureConverter.convertNgeoFeaturesToDrawing(parsedFeatures);
-          if (debugMode) {
-            this.logger.debug(`Converted ${drawingFeatures.length} drawing features`);
-          }
+        ngeoFeatures = this.ngeoParser.decodeFeatureHash(ngeoState.features);
+        drawingFeatures = this.featureConverter.convertNgeoFeaturesToDrawing(ngeoFeatures);
+        if (debug && drawingFeatures && drawingFeatures.length > 0) {
+          this.logger.debug(`Converted ${drawingFeatures.length} drawing features`);
         }
       } catch (error) {
-        unconvertibleParts.push('features (error parsing)');
-        if (debugMode) {
-          this.logger.debug('Error converting features:', error);
-        }
+        console.warn(`[WARN] [${ref}] Could not convert drawing features: ${error}`);
       }
     }
 
-    const ggState = this.ggSerializer.convertToState(ngeoState, drawingFeatures);
+    const { state, extendedState, unconvertible } = this.ggSerializer.convertToState(ngeoState, drawingFeatures);
     
-    if (debugMode) {
+    if (debug) {
       this.logger.debug('Converted geogirafe state (position, layers, etc.)');
     }
 
-    try {
-      const convertedUrl = await this.ggSerializer.serializeToUrl(ggState, this.destinationUrl);
-      
-      if (debugMode) {
-        this.logger.debug(`Converted URL: ${convertedUrl}`);
-      }
-
-      this.logger.logConverted(ref, convertedUrl);
-
-      if (unconvertibleParts.length > 0) {
-        this.logger.logUnconvertible(ref, url, unconvertibleParts);
-      }
-
-      return {
-        ref,
-        success: true,
-        originalUrl: url,
-        convertedUrl,
-        unconvertibleParts: unconvertibleParts.length > 0 ? unconvertibleParts : undefined
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.logError(ref, errorMsg);
-      return {
-        ref,
-        success: false,
-        originalUrl: url,
-        error: errorMsg
-      };
+    if (unconvertible.length > 0) {
+      this.logger.logUnconvertible(ref, url, unconvertible);
     }
+
+    const convertedUrl = await this.ggSerializer.serializeToUrl(
+      state,
+      extendedState,
+      this.destinationUrl
+    );
+
+    if (debug) {
+      this.logger.debug(`Converted URL: ${convertedUrl}`);
+    }
+
+    this.logger.logConverted(ref, convertedUrl);
+
+    return {
+      ref,
+      success: true,
+      originalUrl: url,
+      convertedUrl,
+      unconvertibleParts: unconvertible.length > 0 ? unconvertible : undefined
+    };
   }
 
   async convertBatch(records: UrlRecord[]): Promise<ConversionResult[]> {
     const results: ConversionResult[] = [];
-
+    
     for (const record of records) {
-      const result = await this.convert(record, false);
-      results.push(result);
+      try {
+        const result = await this.convert(record, false);
+        results.push(result);
+      } catch (error) {
+        this.logger.logError(record.ref, String(error));
+        results.push({
+          ref: record.ref,
+          success: false,
+          originalUrl: record.url,
+          error: String(error)
+        });
+      }
     }
-
+    
     return results;
   }
 }

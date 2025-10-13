@@ -25,16 +25,32 @@ export interface NgeoState {
   [key: string]: any;
 }
 
+export interface SharedLayer {
+  id: number;
+  order: number;
+  checked: number;
+  isExpanded: number;
+  timeRestriction?: string;
+  opacity?: number;
+  swiped?: 'left' | 'right' | 'no';
+  children: SharedLayer[];
+  excludedChildrenIds: number[];
+}
+
+export interface GeoGirafePosition {
+  center: [number, number];
+  resolution?: number;
+  crosshair?: boolean;
+  tooltip?: string;
+}
+
 export interface GeoGirafeState {
-  position?: {
-    center: [number, number];
-    zoom?: number;
-  };
-  theme?: string;
-  basemap?: string;
-  layers?: string[];
-  opacity?: Record<string, number>;
-  dimensions?: Record<string, string>;
+  position?: GeoGirafePosition;
+  basemap?: number;
+  layers?: SharedLayer[];
+}
+
+export interface GeoGirafeExtendedState {
   drawing?: {
     features: DrawingFeatureData[];
   };

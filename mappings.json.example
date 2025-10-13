@@ -1,0 +1,18 @@
+{
+  "themes": {
+    "cadastre": 1,
+    "environnement": 2,
+    "mobilite": 3
+  },
+  "layers": {
+    "Layers": 100,
+    "Filters": 101,
+    "cadastre_layer1": 102,
+    "cadastre_layer2": 103
+  },
+  "basemaps": {
+    "plan_ville": 10,
+    "orthophoto": 11,
+    "plan_cadastral": 12
+  }
+}

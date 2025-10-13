@@ -1,12 +1,14 @@
 # ngeo to geogirafe URL Converter
 
-Convert ngeo-style shared URLs to geogirafe-style compressed hash URLs.
+Convert ngeo-style shared URLs to geogirafe-style compressed hash URLs with proper layer structure serialization.
 
 ## Features
 
 - ✅ Parse ngeo Permalink URLs (map position, theme, layers, dimensions, opacity)
 - ✅ Convert drawing features from `rl_features` parameter to geogirafe GeoJSON format
-- ✅ Generate compressed geogirafe URLs with hash-based state
+- ✅ Generate compressed geogirafe URLs using LZ-string compression
+- ✅ **Theme as layer**: Theme is correctly serialized as a layer object (not a separate property)
+- ✅ Proper layer structure with IDs, order, checked status, and children
 - ✅ Dual input sources: PostgreSQL database or local JSON file
 - ✅ Debug and batch execution modes
 - ✅ Comprehensive logging (CSV output + unconvertible parts)
@@ -29,6 +31,31 @@ Edit `.env` with your configuration:
 - `DB_SCHEMA`: Database schema (e.g., `geoportal`)
 - `DB_CONNECTION`: PostgreSQL connection string
 - `INPUT_SOURCE`: `database` or `json`
+
+3. **Create mappings.json** (Required for proper conversion):
+```bash
+cp mappings.json.example mappings.json
+```
+
+Edit `mappings.json` with your theme, layer, and basemap ID mappings:
+```json
+{
+  "themes": {
+    "cadastre": 1,
+    "environnement": 2
+  },
+  "layers": {
+    "LayerName1": 100,
+    "LayerName2": 101
+  },
+  "basemaps": {
+    "plan_ville": 10,
+    "orthophoto": 11
+  }
+}
+```
+
+**Important**: Without proper ID mappings, themes/layers/basemaps cannot be converted to the geogirafe layer structure and will be logged as unconvertible.
 
 ## Usage
 
@@ -56,56 +83,68 @@ Convert all URLs (batch mode):
 npm start -- --batch
 ```
 
-## Examples
+## geogirafe State Structure
 
-### Example 1: Basic URL Conversion
+The converter properly implements the geogirafe state structure based on the geogirafe viewer serialization:
 
-**Input:**
-```
-https://sitn.ne.ch/theme/cadastre?map_x=2550000&map_y=1205000&map_zoom=8&baselayer_ref=plan_ville
-```
+### State Components
 
-**Output:**
-```
-https://demo.geogirafe.dev/sitn#eJwVyEsKgCAURuG9_GMHJgjhViLiZhcSfKHSIHHv2Rl9nI6cqmsuRZgOy7FxgdmU1nImFiV_7AJvSgFmHQLt5sAwsHRRbYUhcFJlQHnO7Ckej_OeMT42Lx1X
-```
+1. **Position** - Map position serialized separately:
+   ```json
+   {
+     "center": [x, y],
+     "resolution": 10
+   }
+   ```
 
-### Example 2: URL with Layers
+2. **Basemap** - Basemap ID (number):
+   ```json
+   10
+   ```
 
-**Input:**
-```
-https://sitn.ne.ch/theme/environnement?map_x=2560000&map_y=1210000&map_zoom=10&tree_groups=Layers,Filters
-```
+3. **Layers** - Array of layer objects (theme is a layer with children):
+   ```json
+   [{
+     "id": 1,
+     "order": 1,
+     "checked": 1,
+     "isExpanded": 1,
+     "children": [
+       {"id": 100, "order": 1, "checked": 1, "isExpanded": 0, "opacity": 0.8, "children": [], "excludedChildrenIds": []}
+     ],
+     "excludedChildrenIds": []
+   }]
+   ```
 
-**Output:**
-```
-https://demo.geogirafe.dev/sitn#eJwlizEKgDAQBP-y9RWJoEUeYOUPxELkwEC8k3gIKvm7EafZ2WIe7HpEiyoIDxYW44wwNm3nKuQb_-1EuFU3BO8KwVbeGAEsZ8wqUp8YCGm-OB-1xvAboY_JPpvKC9RwIcA
-```
+4. **Extended State** - Drawing features and other extended state:
+   ```json
+   {
+     "drawing": {
+       "features": [...]
+     }
+   }
+   ```
 
-### Example 3: URL with Drawing Features
+### Compression
 
-**Input:**
-```
-https://sitn.ne.ch/theme/cadastre?map_x=2550000&map_y=1205000&map_zoom=8&rl_features=Fp(!!zzzzB*zB~a*2)
-```
-
-**Output:**
-```
-https://demo.geogirafe.dev/sitn#eJxVUMFugzAM_RfvmlYBxtbmVnXaeXfEIYKwRoIYJUaoRfz7bLpOqw_Re8_y84sXGDF58hjALNC4QC6CqfKy1Fwqy7WAWsENcQBzWBXQxQ0TODD2tYmiAwVttLMP32LROUtTdIlNFmBT-PjtKUgN05eiOB7PZ6EzmFxB96z2PAnd1PeMreCAQVbYkfF8wV5I6G5gslcFwwbEhbun6K2MbTnoOkrIz3scUR0OjuL1X_MLfSBuNYix9cHSFrva6X2u5KlVtSve3rXO9gf9qFLph54VjGs-yRhxdJG8zC9g2TqHlfWWD9DZPjmGfD2KE6OwffhuxsuHZ5r-JgiMXut1_QGTZ3fh
-```
+Uses LZ-string compression (same as geogirafe viewer):
+1. Serialize state components to JSON
+2. Compress with `LZString.compressToBase64()`
+3. Format: `{compressedState}-{compressedExtendedState}`
+4. Append to URL as hash fragment
 
 ## URL Parameter Mapping
 
-| ngeo Parameter | geogirafe State | Description |
-|----------------|-----------------|-------------|
+| ngeo Parameter | geogirafe Structure | Notes |
+|----------------|---------------------|-------|
 | `map_x`, `map_y` | `position.center` | Map coordinates [x, y] |
-| `map_zoom` | `position.zoom` | Zoom level |
-| `/theme/{name}` | `theme` | Theme name |
-| `baselayer_ref` | `basemap` | Base layer |
-| `tree_groups` | `layers` | Layer list (array) |
-| `tree_opacity_*` | `opacity` | Layer opacity (object) |
-| `dim_*` | `dimensions` | Dimensions (object) |
-| `rl_features` | `drawing.features` | Drawing features (converted to GeoJSON) |
+| `map_zoom` | `position.resolution` | Converted to resolution |
+| `/theme/{name}` | `layers[0]` (as SharedLayer) | Theme as layer object with ID |
+| `baselayer_ref` | `basemap` | Basemap ID (requires mapping) |
+| `tree_groups` | `layers[0].children` | Layers as children of theme |
+| `tree_opacity_*` | `layers[].opacity` | Layer opacity |
+| `dim_*` | Not yet implemented | Dimensions |
+| `rl_features` | `extendedState.drawing.features` | Drawing features as GeoJSON |
 
 ## Output Files
 
@@ -113,15 +152,15 @@ https://demo.geogirafe.dev/sitn#eJxVUMFugzAM_RfvmlYBxtbmVnXaeXfEIYKwRoIYJUaoRfz7
 CSV file with successfully converted URLs:
 ```csv
 ref,new_url
-test1,https://demo.geogirafe.dev/sitn#eJwVyEsKgCAURuG9...
-test2,https://demo.geogirafe.dev/sitn#eJwlizEKgDAQBP-y...
+test1,https://demo.geogirafe.dev/sitn#IwBgPg3gRAxgpgOwC5wE5QFwG0BMBWPEIkAGmBxEKIF0SpU4BnAewBsBXJAS2YU2AB0eAL5gs0LgBN+dZqkloZsABZwYAazjSMwOl0YBRAB4AHAIYIF23Sq6tJDPtlpQ4RmBysBhZXYeIASUlGTCxqYWogA=
 ```
 
 ### unconvertible.log
-Log file for failed conversions and unconvertible parameters:
+Log file for unconvertible parts due to missing ID mappings:
 ```
-[ERROR] [ref] Conversion failed: error details
-[WARN] [ref] Unconvertible parameters: param1, param2
+[2025-01-13T10:30:00.000Z] REF: test5
+Original URL: https://sitn.ne.ch/theme/unknown_theme
+Unconvertible parts: theme: unknown_theme (no ID mapping), layer: unknown_layer (no ID mapping)
 ```
 
 ## Architecture
@@ -129,31 +168,26 @@ Log file for failed conversions and unconvertible parameters:
 ### Components
 
 1. **ngeo-parser.ts** - Parses ngeo URLs and extracts state
-2. **geogirafe-serializer.ts** - Converts state and serializes to geogirafe format
-3. **feature-converter.ts** - Converts drawing features from ngeo to geogirafe
+2. **geogirafe-serializer.ts** - Converts state to proper geogirafe layer structure using LZ-string
+3. **feature-converter.ts** - Converts drawing features from ngeo to geogirafe format
 4. **input-handlers.ts** - Handles database and JSON input sources
-5. **converter.ts** - Main conversion orchestrator
+5. **converter.ts** - Main conversion orchestrator with ID mapping support
 6. **cli.ts** - Command-line interface
 7. **logger.ts** - Logging system
 
 ### State Conversion Flow
 
 ```
-ngeo URL → Parse → ngeo State → Convert → geogirafe State → Compress → geogirafe URL
-                       ↓                        ↓
-                   rl_features          drawing.features
-                       ↓                        ↓
-                 CHAR64 decode           GeoJSON format
+ngeo URL → Parse → ngeo State → Convert with ID mappings → geogirafe State
+                                                                    ↓
+                                    Theme as layer object with ID
+                                    Layers as children of theme
+                                    Basemap as ID
+                                                                    ↓
+                                                          LZ-string compress
+                                                                    ↓
+                                                          geogirafe URL#hash
 ```
-
-### Compression
-
-geogirafe URLs use deflate compression and URL-safe base64 encoding:
-
-1. Convert state to JSON
-2. Compress with zlib deflate
-3. Base64 encode with URL-safe characters (`-` instead of `+`, `_` instead of `/`)
-4. Append to URL as hash fragment
 
 ## Testing
 
@@ -168,25 +202,23 @@ Expected output:
 === Conversion Statistics ===
 Total: 4
 Converted: 3
-Skipped: 1
-Failed: 0
+Skipped: 0
+Failed: 1
 ```
 
 Test cases (`test.json`):
 - **test1**: Basic URL with position and baselayer
 - **test2**: URL with multiple layers
 - **test3**: URL with drawing features (rl_features)
-- **test4**: Invalid URL (skipped - different origin)
+- **test4**: Invalid URL (failed - different origin)
 
-## Library Notes
+## Key Differences from Initial Implementation
 
-This tool was designed to use `@geogirafe/lib-geoportal`, but the library has limitations for standalone Node.js CLI usage:
-
-- Designed for browser/Vite environments
-- Complex ESM dependencies (OpenLayers)
-- Classes not exported for programmatic use
-
-Instead, this implementation uses custom serializers based on the geogirafe state specification, ensuring full compatibility with geogirafe URLs.
+1. **Theme Storage**: Theme is now correctly stored as a layer object in the layers array (not as a separate "theme" property)
+2. **Layer Structure**: Uses SharedLayer objects with id, order, checked, isExpanded, children, excludedChildrenIds
+3. **ID Mappings**: Requires theme/layer/basemap name-to-ID mappings via mappings.json
+4. **Compression**: Uses LZ-string (same as geogirafe viewer) instead of zlib
+5. **State Serialization**: Matches geogirafe viewer's serialization structure exactly
 
 ## Tech Stack
 
@@ -194,7 +226,7 @@ Instead, this implementation uses custom serializers based on the geogirafe stat
 - **Language**: TypeScript (CommonJS)
 - **Database**: PostgreSQL (pg driver)
 - **CLI**: tsx for TypeScript execution
-- **Compression**: zlib (built-in)
+- **Compression**: lz-string (browser-compatible Base64)
 
 ## License
 
