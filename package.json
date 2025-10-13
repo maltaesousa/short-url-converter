@@ -7,11 +7,17 @@
     "start": "tsx src/cli.ts",
     "test": "npm start -- --test"
   },
-  "keywords": ["ngeo", "geogirafe", "url-converter", "cli"],
+  "keywords": [
+    "ngeo",
+    "geogirafe",
+    "url-converter",
+    "cli"
+  ],
   "author": "",
   "license": "ISC",
   "description": "CLI tool to convert ngeo-style URLs to geogirafe-style URLs",
   "dependencies": {
+    "@geogirafe/lib-geoportal": "^1.0.0-2095813615",
     "@types/node": "^24.7.2",
     "@types/pg": "^8.15.5",
     "dotenv": "^17.2.3",
