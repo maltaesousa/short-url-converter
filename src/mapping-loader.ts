@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { TreeItem } from './types';
 
 export interface IdMappings {
   themes: Record<string, number>;
@@ -17,34 +18,20 @@ export class MappingLoader {
     this.schema = schema;
   }
 
-  async loadMappings(): Promise<IdMappings> {
+  async loadMappings(): Promise<TreeItem[]> {
+    let treeItems: TreeItem[] = [];
     try {
       const query = `
         SELECT type, id, name 
         FROM ${this.schema}.treeitem 
       `;
-      
       const result = await this.pool.query(query);
+      treeItems = result.rows;
+
+      console.log(`[INFO] Loaded ${treeItems.length} treeItems from database`);
       
-      const themes: Record<string, number> = {};
-      const layers: Record<string, number> = {};
-      const basemaps: Record<string, number> = {};
-      
-      for (const row of result.rows) {
-        const { type, id, name } = row;
-        
-        if (type === 'theme') {
-          themes[name] = id;
-        } else if (type === 'l_wms' || type === 'l_wmts' || type === 'group') {
-          layers[name] = id;
-        }
-        // Note: basemaps might need special handling based on your data structure
-        // For now, we'll use a separate query or configuration if needed
-      }
-      
-      console.log(`[INFO] Loaded ${Object.keys(themes).length} themes, ${Object.keys(layers).length} layers from database`);
-      
-      return { themes, layers, basemaps };
+      return treeItems;
+
     } catch (error) {
       console.error('[ERROR] Failed to load mappings from database:', error);
       throw new Error(`Database mapping error: ${error}`);

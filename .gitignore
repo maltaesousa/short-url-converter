@@ -3,3 +3,4 @@ dist/
 .env
 *.log
 converted.csv
+report.csv

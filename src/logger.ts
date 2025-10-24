@@ -1,17 +1,18 @@
 import { appendFileSync, writeFileSync, existsSync } from 'fs';
-import { ConversionResult } from './types';
 
 export class Logger {
   private convertedCsvPath = './converted.csv';
-  private unconvertibleLogPath = './unconvertible.log';
+  private reportPath = './report.csv';
+  private debugMode: boolean;
 
   constructor() {
+    this.debugMode = process.env.DEBUG === 'true' || false;
     if (!existsSync(this.convertedCsvPath)) {
       writeFileSync(this.convertedCsvPath, 'ref,new_url\n');
     }
     
-    if (!existsSync(this.unconvertibleLogPath)) {
-      writeFileSync(this.unconvertibleLogPath, '');
+    if (!existsSync(this.reportPath)) {
+      writeFileSync(this.reportPath, 'ref,status,issue\n');
     }
   }
 
@@ -20,19 +21,19 @@ export class Logger {
     appendFileSync(this.convertedCsvPath, csvLine);
   }
 
-  logUnconvertible(ref: string, originalUrl: string, parts: string[]): void {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] REF: ${ref}\nOriginal URL: ${originalUrl}\nUnconvertible parts: ${parts.join(', ')}\n\n`;
-    appendFileSync(this.unconvertibleLogPath, logEntry);
+  logUnconvertible(ref: string, parts: string[]): void {
+    const logEntry = `"${ref}","PARTIALLY_CONVERTED","${parts.join(';')}"\n`;
+    appendFileSync(this.reportPath, logEntry);
   }
 
   logError(ref: string, error: string): void {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ERROR - REF: ${ref}\nError: ${error}\n\n`;
-    appendFileSync(this.unconvertibleLogPath, logEntry);
+    const logEntry = `"${ref}","ERROR","${error}"\n`;
+    appendFileSync(this.reportPath, logEntry);
+    this.error(`Error for ref ${ref}: ${error}`);
   }
 
   debug(message: string, data?: any): void {
+    if (!this.debugMode) return;
     console.log(`[DEBUG] ${message}`);
     if (data) {
       console.log(JSON.stringify(data, null, 2));

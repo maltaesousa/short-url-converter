@@ -1,75 +1,116 @@
-import { NgeoState } from './types';
+import { View } from 'ol';
+import { MappingLoader } from './mapping-loader';
+import { State, TreeItem } from './types';
+import { ViewManager } from './viewmanager';
+import { Logger } from './logger';
 
 const CHAR64 = '.-_!*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghjkmnpqrstuvwxyz';
+const logger = new Logger();
 
 export class NgeoParser {
   private accuracy = 0.1;
+  private treeItems: TreeItem[] = [];
+  private olView: View;
 
-  parseUrl(url: string, originUrl: string): NgeoState | null {
-    try {
-      const urlObj = new URL(url);
-      
-      if (!url.startsWith(originUrl)) {
-        return null;
-      }
+  constructor() {
+    this.olView = ViewManager.getOlView();
+  }
 
-      const state: NgeoState = {};
-      
-      const pathMatch = urlObj.pathname.match(/\/theme\/([^/?]+)/);
-      if (pathMatch) {
-        state.theme = pathMatch[1];
-      }
+  async initialize() {
+    const dbConnection = process.env.DB_CONNECTION;
+    const dbSchema = process.env.DB_SCHEMA || 'main';
 
-      const params = urlObj.searchParams;
-      
-      if (params.has('map_x') && params.has('map_y')) {
-        state.mapX = parseFloat(params.get('map_x')!);
-        state.mapY = parseFloat(params.get('map_y')!);
-      }
-      
-      if (params.has('map_zoom')) {
-        state.mapZoom = parseInt(params.get('map_zoom')!);
-      }
-
-      if (params.has('baselayer_ref')) {
-        state.baselayer = params.get('baselayer_ref')!;
-      }
-
-      if (params.has('tree_groups')) {
-        state.layers = params.get('tree_groups')!.split(',');
-      }
-
-      const dimensions: Record<string, string> = {};
-      params.forEach((value, key) => {
-        if (key.startsWith('dim_')) {
-          const dimName = key.substring(4);
-          dimensions[dimName] = value;
-        }
-      });
-      if (Object.keys(dimensions).length > 0) {
-        state.dimensions = dimensions;
-      }
-
-      const opacity: Record<string, number> = {};
-      params.forEach((value, key) => {
-        if (key.startsWith('tree_opacity_')) {
-          const layerName = key.substring(13);
-          opacity[layerName] = parseFloat(value);
-        }
-      });
-      if (Object.keys(opacity).length > 0) {
-        state.opacity = opacity;
-      }
-
-      if (params.has('rl_features')) {
-        state.features = params.get('rl_features')!;
-      }
-
-      return state;
-    } catch (error) {
-      console.error('Error parsing ngeo URL:', error);
-      return null;
+    if (!dbConnection) {
+      throw new Error('DB_CONNECTION environment variable is required when using database mappings');
     }
+    const mappingLoader = new MappingLoader(dbConnection, dbSchema);
+    this.treeItems = await mappingLoader.loadMappings();
+    mappingLoader.close();
+  }
+
+  parseUrl(url: string): State {
+    const urlObj = new URL(url);
+    const params = urlObj.searchParams;
+    const state: State = {};
+
+    // BASELAYER
+    if (params.has('baselayer_ref')) {
+      const baselayerName = params.get('baselayer_ref')!;
+      const baselayerId = this.treeItems.find(item => item.name === baselayerName)?.id;
+      if (!baselayerId) {
+        logger.info(`Baselayer '${baselayerName}' not found in db, will set background to id: 0`);
+      }
+      state.baselayer = String(baselayerId || 0);
+      params.delete('baselayer_ref');
+    }
+
+    // DEFAULT PROJECTION
+
+    // THEME
+    const pathMatch = urlObj.pathname.match(/\/theme\/([^/?]+)/);
+    if (pathMatch) {
+      state.layers = [
+        {
+          id: this.treeItems.find(item => item.name === pathMatch[1])?.id || 0,
+          order: 1,
+          checked: 0,
+          isExpanded: 1,
+          children: [],
+          excludedChildrenIds: []
+        }
+      ]
+    }
+
+    // MAP POSITION
+    
+    if (params.has('map_x') && params.has('map_y')) {
+      const mapX = parseFloat(params.get('map_x')!);
+      const mapY = parseFloat(params.get('map_y')!);
+      let zoom = 1;
+      if (params.has('map_zoom')) {
+        zoom = parseInt(params.get('map_zoom')!);
+        params.delete('map_zoom');
+      }
+      state.position = {
+        center: [mapX, mapY],
+        resolution: this.olView.getResolutionForZoom(zoom)
+      };
+      params.delete('map_x');
+      params.delete('map_y');
+    }
+
+    const dimensions: Record<string, string> = {};
+    params.forEach((value, key) => {
+      if (key.startsWith('dim_')) {
+        const dimName = key.substring(4);
+        dimensions[dimName] = value;
+      }
+    });
+    if (Object.keys(dimensions).length > 0) {
+      state.dimensions = dimensions;
+    }
+
+    const opacity: Record<string, number> = {};
+    params.forEach((value, key) => {
+      if (key.startsWith('tree_opacity_')) {
+        const layerName = key.substring(13);
+        opacity[layerName] = parseFloat(value);
+      }
+    });
+    if (Object.keys(opacity).length > 0) {
+      state.opacity = opacity;
+    }
+
+    if (params.has('rl_features')) {
+      state.features = params.get('rl_features')!;
+    }
+
+    if (params.keys().next().done === false) {
+      logger.info('Unprocessed URL parameters remain:');
+      state.unconvertedParts = params.toString().split('&');
+    }
+
+    return state;
   }
 
   decodeFeatureHash(text: string): any[] {
@@ -88,7 +129,7 @@ export class NgeoParser {
 
       const featureText = remainingText.substring(0, closeParenIndex + 1);
       const feature = this.parseFeature(featureText, { prevX, prevY });
-      
+
       if (feature) {
         features.push(feature);
         prevX = feature.prevX || prevX;
@@ -108,7 +149,7 @@ export class NgeoParser {
 
     const geomType = text[0];
     const splitIndex = text.indexOf('~');
-    
+
     const geometryText = splitIndex >= 0 ? text.substring(0, splitIndex) + ')' : text;
     const geometry = this.parseGeometry(geometryText, context);
 
@@ -118,7 +159,7 @@ export class NgeoParser {
     if (splitIndex >= 0) {
       const rest = text.substring(splitIndex + 1, text.length - 1);
       const styleSplitIndex = rest.indexOf('~');
-      
+
       const propsText = styleSplitIndex >= 0 ? rest.substring(0, styleSplitIndex) : rest;
       if (propsText) {
         const parts = propsText.split("'");
@@ -152,9 +193,9 @@ export class NgeoParser {
   private parseGeometry(text: string, context: { prevX: number; prevY: number }): any {
     const geomType = text[0];
     const coordsText = text.substring(2, text.length - 1);
-    
+
     const coords = this.decodeCoordinates(coordsText, context);
-    
+
     return {
       type: geomType,
       coordinates: coords

@@ -12,17 +12,20 @@ export interface UrlRecord {
   expected?: string;
 }
 
-export interface NgeoState {
-  mapX?: number;
-  mapY?: number;
-  mapZoom?: number;
-  theme?: string;
+export interface TreeItem {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface State {
+  position?: GeoGirafePosition;
   baselayer?: string;
-  layers?: string[];
+  layers?: SharedLayer[];
   opacity?: Record<string, number>;
   features?: string;
   dimensions?: Record<string, string>;
-  [key: string]: any;
+  unconvertedParts?: string[];
 }
 
 export interface SharedLayer {
@@ -40,17 +43,11 @@ export interface SharedLayer {
 export interface GeoGirafePosition {
   center: [number, number];
   resolution?: number;
-  crosshair?: boolean;
+  crosshair?: string;
   tooltip?: string;
 }
 
-export interface GeoGirafeState {
-  position?: GeoGirafePosition;
-  basemap?: number;
-  layers?: SharedLayer[];
-}
-
-export interface GeoGirafeExtendedState {
+export interface ExtendedState {
   drawing?: {
     features: DrawingFeatureData[];
   };
@@ -79,10 +76,8 @@ export interface DrawingFeatureData {
 export interface ConversionResult {
   ref: string;
   success: boolean;
-  originalUrl: string;
   convertedUrl?: string;
   error?: string;
-  unconvertibleParts?: string[];
 }
 
 export interface ConversionStats {
