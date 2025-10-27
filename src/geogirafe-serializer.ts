@@ -4,7 +4,6 @@ import * as LZString from 'lz-string';
 export class GeoGirafeSerializer {
   constructor() {}
 
-
   async serializeToUrl(state: State, extendedState: ExtendedState, baseUrl: string): Promise<string> {
 
     const serializedState = {} as Record<string, any>;

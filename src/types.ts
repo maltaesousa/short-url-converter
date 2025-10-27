@@ -20,17 +20,6 @@ export interface TreeItem {
   parent_ids: number[];
 }
 
-export interface State {
-  baselayer?: string;
-  projection?: string;
-  position?: GeoGirafePosition;
-  layers?: SharedLayer[];
-  opacity?: Record<string, number>;
-  features?: string;
-  dimensions?: Record<string, string>;
-  unconvertedParts?: string[];
-}
-
 export interface SharedLayer {
   id: number;
   order: number;

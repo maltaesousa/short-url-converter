@@ -1,8 +1,9 @@
 import { View } from 'ol';
 import { ThemesLoader } from './themes-loader';
-import { SharedLayer, State, TreeItem } from './types';
+import { SharedLayer, TreeItem } from './types';
 import { ViewManager } from './viewmanager';
 import { Logger } from './logger';
+import { State } from './state';
 
 const CHAR64 = '.-_!*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghjkmnpqrstuvwxyz';
 const logger = new Logger();
@@ -11,6 +12,7 @@ export class NgeoParser {
   private accuracy = 0.1;
   private treeItems: TreeItem[] = [];
   private olView: View;
+  private state?: State;
 
   constructor() {
     this.olView = ViewManager.getOlView();
@@ -18,11 +20,8 @@ export class NgeoParser {
 
   async initialize() {
     const dbConnection = process.env.DB_CONNECTION;
-    const dbSchema = process.env.DB_SCHEMA || 'main';
+    const dbSchema = process.env.DB_SCHEMA;
 
-    if (!dbConnection) {
-      throw new Error('DB_CONNECTION environment variable is required when using database mappings');
-    }
     const themesLoader = new ThemesLoader(dbConnection, dbSchema);
     this.treeItems = await themesLoader.loadThemes();
     themesLoader.close();
@@ -31,9 +30,7 @@ export class NgeoParser {
   parseUrl(url: string): State {
     const urlObj = new URL(url);
     const params = urlObj.searchParams;
-    const state: State = {
-      unconvertedParts: []
-    };
+    this.state = new State();
 
     //TODO: no_redirect??
 
@@ -49,7 +46,7 @@ export class NgeoParser {
       if (!baselayerId) {
         logger.info(`Baselayer '${baselayerName}' not found in db, will set background to id: 0`);
       }
-      state.baselayer = String(baselayerId || 0);
+      this.state.baselayer = String(baselayerId || 0);
       params.delete('baselayer_ref');
     }
 
@@ -62,7 +59,7 @@ export class NgeoParser {
         zoom = parseInt(params.get('map_zoom')!);
         params.delete('map_zoom');
       }
-      state.position = {
+      this.state.position = {
         center: [mapX, mapY],
         resolution: this.olView.getResolutionForZoom(zoom)
       };
@@ -71,10 +68,8 @@ export class NgeoParser {
     }
 
     // LAYERTREE
-    state.layers = [];
     const not_found_layers: string[] = [];
     const foundGroupLayers: SharedLayer[] = [];
-    let order = 1000
 
     // Theme
     let currentThemeLayer: SharedLayer | null = null;
@@ -82,19 +77,11 @@ export class NgeoParser {
     if (pathMatch) {
       const themeId = this.treeItems.find(item => item.name === pathMatch[1])?.id;
       if (pathMatch && themeId) {
-        currentThemeLayer = {
-          id: themeId,
-          order: order++,
-          checked: 0,
-          isExpanded: 1,
-          children: [],
-          excludedChildrenIds: []
-        };
-        state.layers.push(currentThemeLayer);
+        currentThemeLayer = this.state.addLayer(themeId);
       }
     }
 
-    // LAYERS
+    // Groups and layers
     for (const key of Array.from(params.keys())) {
       const value = params.get(key) || '';
       if (key === 'theme') {
@@ -103,15 +90,7 @@ export class NgeoParser {
           not_found_layers.push(value);
         } else if (currentThemeLayer?.id !== themeId) {
           // New theme encountered, update currentThemeLayer
-          currentThemeLayer = {
-            id: themeId,
-            order: order++,
-            checked: 0,
-            isExpanded: 1,
-            children: [],
-            excludedChildrenIds: []
-          };
-          state.layers.push(currentThemeLayer);
+          currentThemeLayer = this.state.addLayer(themeId);
         }
         params.delete(key);
         continue;
@@ -126,22 +105,14 @@ export class NgeoParser {
             not_found_layers.push(groupName);
             continue;
           }
-          const layer = {
-            id: groupId,
-            order: order++,
-            checked: 0,
-            //TODO:
-            isExpanded: 1,
-            children: [],
-            excludedChildrenIds: []
-          };
+          const layer = this.state.createLayer(groupId);
           groupLayers.push(layer);
         }
         // Attach all groups as children of current theme
         if (currentThemeLayer) {
           currentThemeLayer.children.push(...groupLayers);
         } else {
-          state.layers.push(...groupLayers);
+          this.state.layers.push(...groupLayers);
         }
         // Save for later tree_enable lookup
         foundGroupLayers.push(...groupLayers);
@@ -157,20 +128,14 @@ export class NgeoParser {
           if (currentThemeLayer) {
             parentGroup = currentThemeLayer.children.find((layer: any) => layer.id === groupId);
           } else {
-            parentGroup = state.layers.find(layer => layer.id === groupId);
+            parentGroup = this.state.layers.find((layer: SharedLayer) => layer.id === groupId);
           }
           const itemId = this.treeItems.find(item => item.name === value)?.id;
           if (!itemId) {
             not_found_layers.push(value);
           } else {
-            parentGroup?.children.push({
-              id: itemId,
-              order: order++,
-              checked: 1,
-              isExpanded: 1,
-              children: [],
-              excludedChildrenIds: []
-            });
+            const layer = this.state.createLayer(itemId, 1);
+            parentGroup?.children.push(layer);
           }
         }
         params.delete(key);
@@ -198,39 +163,18 @@ export class NgeoParser {
         if (!item) {
           not_found_layers.push(value);
         } else if (parentGroup) {
-          parentGroup.children.push({
-            id: item.id,
-            order: order++,
-            checked: 1,
-            isExpanded: 1,
-            children: [],
-            excludedChildrenIds: []
-          });
+          this.state.addSubLayer(parentGroup, item.id, 1);
         } else if (currentThemeLayer) {
-          currentThemeLayer.children.push({
-            id: item.id,
-            order: order++,
-            checked: 1,
-            isExpanded: 1,
-            children: [],
-            excludedChildrenIds: []
-          });
+          this.state.addSubLayer(currentThemeLayer, item.id, 1);
         } else {
-          state.layers.push({
-            id: item.id,
-            order: order++,
-            checked: 1,
-            isExpanded: 1,
-            children: [],
-            excludedChildrenIds: []
-          });
+          this.state.addLayer(item.id, 1);
         }
         params.delete(key);
       }
     }
 
     if (not_found_layers.length > 0) {
-      state.unconvertedParts!.push(`Layers not found in DB: ${not_found_layers.join(', ')}`);
+      this.state.unconvertedParts!.push(`Layers not found in DB: ${not_found_layers.join(', ')}`);
     }
 
     const dimensions: Record<string, string> = {};
@@ -241,7 +185,7 @@ export class NgeoParser {
       }
     });
     if (Object.keys(dimensions).length > 0) {
-      state.dimensions = dimensions;
+      this.state.dimensions = dimensions;
     }
 
     const opacity: Record<string, number> = {};
@@ -252,20 +196,20 @@ export class NgeoParser {
       }
     });
     if (Object.keys(opacity).length > 0) {
-      state.opacity = opacity;
+      this.state.opacity = opacity;
     }
 
     if (params.has('rl_features')) {
-      state.features = params.get('rl_features')!;
+      this.state.features = params.get('rl_features')!;
     }
 
 
     if (params.keys().next().done === false) {
       logger.info('Unprocessed URL parameters remain:');
-      state.unconvertedParts = params.toString().split('&');
+      this.state.unconvertedParts = params.toString().split('&');
     }
 
-    return state;
+    return this.state;
   }
 
   decodeFeatureHash(text: string): any[] {
