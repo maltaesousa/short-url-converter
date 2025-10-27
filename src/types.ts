@@ -16,11 +16,14 @@ export interface TreeItem {
   id: number;
   name: string;
   type: string;
+  // list of parent IDs, [theme_id, layergroup_id, smaller_group_id, ...]
+  parent_ids: number[];
 }
 
 export interface State {
-  position?: GeoGirafePosition;
   baselayer?: string;
+  projection?: string;
+  position?: GeoGirafePosition;
   layers?: SharedLayer[];
   opacity?: Record<string, number>;
   features?: string;
