@@ -33,7 +33,7 @@ async function main() {
     console.log('  npm start --batch         - Batch mode: convert all URLs');
     console.log('  npm start --test <ref>    - Test mode: use test.json');
     console.log('  npm start --test --batch  - Test batch mode: use test.json');
-    console.log('  npm start --export-themes  - Export DB themes to CSV');
+    console.log('  npm start --export-themes - Export DB themes to CSV');
     process.exit(1);
   }
 

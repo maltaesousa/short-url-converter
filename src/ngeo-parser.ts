@@ -32,7 +32,7 @@ export class NgeoParser {
     const params = urlObj.searchParams;
     this.state = new State();
 
-    //TODO: no_redirect??
+    // TODO: no_redirect??
 
     // LANG is not shared
     if (params.has('lang')) {
@@ -177,6 +177,8 @@ export class NgeoParser {
       this.state.unconvertedParts!.push(`Layers not found in DB: ${not_found_layers.join(', ')}`);
     }
 
+
+    // TODO
     const dimensions: Record<string, string> = {};
     params.forEach((value, key) => {
       if (key.startsWith('dim_')) {
@@ -188,6 +190,8 @@ export class NgeoParser {
       this.state.dimensions = dimensions;
     }
 
+
+    // TODO
     const opacity: Record<string, number> = {};
     params.forEach((value, key) => {
       if (key.startsWith('tree_opacity_')) {

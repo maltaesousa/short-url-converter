@@ -1,4 +1,5 @@
-import { State, ExtendedState } from './types';
+import { State } from './state';
+import {ExtendedState } from './types';
 import * as LZString from 'lz-string';
 
 export class GeoGirafeSerializer {
