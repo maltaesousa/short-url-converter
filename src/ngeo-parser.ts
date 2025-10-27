@@ -1,6 +1,6 @@
 import { View } from 'ol';
 import { ThemesLoader } from './themes-loader';
-import { State, TreeItem } from './types';
+import { SharedLayer, State, TreeItem } from './types';
 import { ViewManager } from './viewmanager';
 import { Logger } from './logger';
 
@@ -26,36 +26,6 @@ export class NgeoParser {
     const themesLoader = new ThemesLoader(dbConnection, dbSchema);
     this.treeItems = await themesLoader.loadThemes();
     themesLoader.close();
-  }
-
-  addItemToState(state: State, item: TreeItem, order: number, checked = 1) {
-    if (item.parent_ids.length > 0) {
-      const parentId = item.parent_ids.pop();
-      let parentItem = state.layers!.find(layer => layer.id === parentId);
-      console.log(`Adding item to state: ${item.name} (parent: ${parentItem})`);
-      if (!parentItem) {
-        const parentTreeItem = this.treeItems.find(ti => ti.id === parentId);
-        if (!parentTreeItem) {
-          logger.error(`Parent item with id ${parentId} not found for item ${item.name}`);
-          return;
-        }
-        parentTreeItem.parent_ids = item.parent_ids;
-        let parentItemId = this.addItemToState(state, parentTreeItem, order, 0);
-        parentItem = state.layers!.find(layer => layer.id === parentItemId);
-        console.log(`Now: ${item.name} (parent: ${parentItem})`);
-      }
-      const newItem = {
-        id: item.id,
-        order: order,
-        checked: checked,
-        isExpanded: 1,
-        children: [],
-        excludedChildrenIds: []
-      }
-      parentItem!.children.push(newItem);
-      return item.id;
-    }
-
   }
 
   parseUrl(url: string): State {
@@ -100,57 +70,61 @@ export class NgeoParser {
       params.delete('map_y');
     }
 
+    // LAYERTREE
     state.layers = [];
     const not_found_layers: string[] = [];
+    const foundGroupLayers: SharedLayer[] = [];
     let order = 1000
 
-    // THEME
-    let previousThemeId: number | null = null;
+    // Theme
+    let currentThemeLayer: SharedLayer | null = null;
     const pathMatch = urlObj.pathname.match(/\/theme\/([^/?]+)/);
     if (pathMatch) {
       const themeId = this.treeItems.find(item => item.name === pathMatch[1])?.id;
       if (pathMatch && themeId) {
-        state.layers.push({
+        currentThemeLayer = {
           id: themeId,
           order: order++,
           checked: 0,
           isExpanded: 1,
           children: [],
           excludedChildrenIds: []
-        });
-        previousThemeId = themeId;
+        };
+        state.layers.push(currentThemeLayer);
       }
     }
 
     // LAYERS
     for (const key of Array.from(params.keys())) {
       const value = params.get(key) || '';
-      console.log(`Parsing param: ${key} = ${value}`);
       if (key === 'theme') {
         const themeId = this.treeItems.find(item => item.name === value)?.id;
         if (!themeId) {
           not_found_layers.push(value);
-        } else if ( previousThemeId !== themeId ) {
-          previousThemeId = themeId;
-          state.layers.push({
+        } else if (currentThemeLayer?.id !== themeId) {
+          // New theme encountered, update currentThemeLayer
+          currentThemeLayer = {
             id: themeId,
             order: order++,
             checked: 0,
             isExpanded: 1,
             children: [],
             excludedChildrenIds: []
-          });
+          };
+          state.layers.push(currentThemeLayer);
         }
         params.delete(key);
-        continue
+        continue;
       }
       if (key == 'tree_groups') {
+        // Store group info for later use
         const groups = value.split(',');
+        const groupLayers: any[] = [];
         for (const groupName of groups) {
           const groupId = this.treeItems.find(item => item.name === groupName)?.id;
           if (!groupId) {
             not_found_layers.push(groupName);
-            continue
+            continue;
           }
           const layer = {
             id: groupId,
@@ -160,14 +134,17 @@ export class NgeoParser {
             isExpanded: 1,
             children: [],
             excludedChildrenIds: []
-          }
-          if (previousThemeId !== null) {
-            const parentTheme = state.layers.find(layer => layer.id === previousThemeId);
-            parentTheme?.children.push(layer);
-          } else {
-            state.layers.push(layer);
-          }
+          };
+          groupLayers.push(layer);
         }
+        // Attach all groups as children of current theme
+        if (currentThemeLayer) {
+          currentThemeLayer.children.push(...groupLayers);
+        } else {
+          state.layers.push(...groupLayers);
+        }
+        // Save for later tree_enable lookup
+        foundGroupLayers.push(...groupLayers);
         params.delete(key);
         continue;
       }
@@ -175,7 +152,13 @@ export class NgeoParser {
         const groupName = key.replace('tree_group_layers_', '');
         const groupId = this.treeItems.find(item => item.name === groupName)?.id;
         if (value && groupId) {
-          const parentGroup = state.layers.find(layer => layer.id === groupId);
+          // Find group in current theme children
+          let parentGroup = null;
+          if (currentThemeLayer) {
+            parentGroup = currentThemeLayer.children.find((layer: any) => layer.id === groupId);
+          } else {
+            parentGroup = state.layers.find(layer => layer.id === groupId);
+          }
           const itemId = this.treeItems.find(item => item.name === value)?.id;
           if (!itemId) {
             not_found_layers.push(value);
@@ -191,22 +174,58 @@ export class NgeoParser {
           }
         }
         params.delete(key);
-        continue
+        continue;
       }
       if (key.startsWith('tree_enable_')) {
         const itemName = key.replace('tree_enable_', '');
-        let item;
-        if (previousThemeId !== null) {
-          item = this.treeItems.find(item => item.name === itemName && item.parent_ids.includes(previousThemeId as number));
-        } else {
-          item = this.treeItems.find(item => item.name === itemName);
+        // Find the group parent from foundGroupLayers
+        let item = null;
+        let parentGroup = null;
+        if (foundGroupLayers.length > 0) {
+          for (const groupLayer of foundGroupLayers) {
+            // Find item with correct parent chain
+            item = this.treeItems.find(ti => ti.name === itemName && ti.parent_ids.includes(groupLayer.id));
+            if (item) {
+              parentGroup = groupLayer;
+              break;
+            }
+          }
+        }
+        // Fallback: just find by name
+        if (!item) {
+          item = this.treeItems.find(ti => ti.name === itemName);
         }
         if (!item) {
           not_found_layers.push(value);
+        } else if (parentGroup) {
+          parentGroup.children.push({
+            id: item.id,
+            order: order++,
+            checked: 1,
+            isExpanded: 1,
+            children: [],
+            excludedChildrenIds: []
+          });
+        } else if (currentThemeLayer) {
+          currentThemeLayer.children.push({
+            id: item.id,
+            order: order++,
+            checked: 1,
+            isExpanded: 1,
+            children: [],
+            excludedChildrenIds: []
+          });
         } else {
-          this.addItemToState(state, structuredClone(item), order++);
-          params.delete(key);
+          state.layers.push({
+            id: item.id,
+            order: order++,
+            checked: 1,
+            isExpanded: 1,
+            children: [],
+            excludedChildrenIds: []
+          });
         }
+        params.delete(key);
       }
     }
 
