@@ -7,7 +7,7 @@ export interface IdMappings {
   basemaps: Record<string, number>;
 }
 
-export class MappingLoader {
+export class ThemesLoader {
   private pool: Pool;
   private schema: string;
 
@@ -18,7 +18,7 @@ export class MappingLoader {
     this.schema = schema;
   }
 
-  async loadMappings(): Promise<TreeItem[]> {
+  async loadThemes(): Promise<TreeItem[]> {
     let treeItems: TreeItem[] = [];
     try {
       const query = `

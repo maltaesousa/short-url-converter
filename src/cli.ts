@@ -40,10 +40,10 @@ async function main() {
   // Export themes from DB
   if (args[0] === '--export-themes') {
     const filename = 'themes.csv';
-    const { MappingLoader } = await import('./mapping-loader');
-    const mappingLoader = new MappingLoader(dbConnection, dbSchema);
+    const { ThemesLoader } = await import('./themes-loader');
+    const themesLoader = new ThemesLoader(dbConnection, dbSchema);
     try {
-      const treeItems = await mappingLoader.loadMappings();
+      const treeItems = await themesLoader.loadThemes();
       // Write CSV
       const fs = await import('fs');
       const header = 'id,name,type,parent_ids\n';
@@ -54,7 +54,7 @@ async function main() {
       console.error('Failed to export mapping:', error);
       process.exit(1);
     } finally {
-      await mappingLoader.close();
+      await themesLoader.close();
     }
     process.exit(0);
   }

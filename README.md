@@ -116,7 +116,7 @@ Uses LZ-string compression (same as geogirafe viewer):
 | `map_x`, `map_y` | `position.center` | Map coordinates [x, y] |
 | `map_zoom` | `position.resolution` | Converted to resolution |
 | `/theme/{name}` | `layers[0]` (as SharedLayer) | Theme as layer object with ID |
-| `baselayer_ref` | `basemap` | Basemap ID (requires mapping) |
+| `baselayer_ref` | `basemap` | Basemap ID |
 | `tree_groups` | `layers[0].children` | Layers as children of theme |
 | `tree_opacity_*` | `layers[].opacity` | Layer opacity |
 | `dim_*` | Not yet implemented | Dimensions |
