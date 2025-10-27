@@ -43,6 +43,9 @@ export class UrlConverter {
 
     const state = this.ngeoParser.parseUrl(url);
 
+    // Projection is not sharable in ngeo, so we set it to a default value
+    state.projection = `EPSG:${process.env.SRID}`;
+
     this.logger.debug('Parsed ngeo state:');
     this.logger.debug(JSON.stringify(state, null, 2));
 
