@@ -22,14 +22,44 @@ export class MappingLoader {
     let treeItems: TreeItem[] = [];
     try {
       const query = `
-        SELECT type, id, name 
-        FROM ${this.schema}.treeitem 
+        WITH RECURSIVE parent_paths AS (
+          SELECT
+              ti.id AS treeitem_id,
+              ti.name AS treeitem_name,
+              ti.type AS treeitem_type,
+              ti.id AS current_id,
+              ARRAY[]::integer[] AS parent_ids
+          FROM ${this.schema}.treeitem ti
+
+          UNION ALL
+
+          -- Recurse parents
+          SELECT
+              pp.treeitem_id,
+              pp.treeitem_name,
+              pp.treeitem_type,
+              lgt.treegroup_id AS current_id,
+              array_prepend(lgt.treegroup_id, pp.parent_ids) AS parent_ids
+          FROM parent_paths pp
+          JOIN ${this.schema}.layergroup_treeitem lgt 
+              ON lgt.treeitem_id = pp.current_id
+        )
+        -- Keep only paths that goes to the last parent possible
+        SELECT DISTINCT
+            pp.treeitem_id as id,
+          pp.treeitem_name as name,
+          pp.treeitem_type as type,
+            pp.parent_ids
+        FROM parent_paths pp
+        LEFT JOIN ${this.schema}.layergroup_treeitem parent_check
+            ON parent_check.treeitem_id = pp.current_id  -- still has a parent ?
+        WHERE parent_check.treeitem_id IS NULL       -- if not parent, it's the top of hierarchy
       `;
       const result = await this.pool.query(query);
       treeItems = result.rows;
 
       console.log(`[INFO] Loaded ${treeItems.length} treeItems from database`);
-      
+
       return treeItems;
 
     } catch (error) {
@@ -48,18 +78,18 @@ export class MappingLoader {
         WHERE type = 'basemap'
         ORDER BY name
       `;
-      
+
       const result = await this.pool.query(query);
       const basemaps: Record<string, number> = {};
-      
+
       for (const row of result.rows) {
         basemaps[row.name] = row.id;
       }
-      
+
       if (Object.keys(basemaps).length > 0) {
         console.log(`[INFO] Loaded ${Object.keys(basemaps).length} basemaps from database`);
       }
-      
+
       return basemaps;
     } catch (error) {
       // Basemaps might not exist as a type, that's okay
