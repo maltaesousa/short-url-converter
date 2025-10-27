@@ -1,5 +1,5 @@
 import { View } from 'ol';
-import { MappingLoader } from './mapping-loader';
+import { ThemesLoader } from './themes-loader';
 import { State, TreeItem } from './types';
 import { ViewManager } from './viewmanager';
 import { Logger } from './logger';
@@ -23,15 +23,54 @@ export class NgeoParser {
     if (!dbConnection) {
       throw new Error('DB_CONNECTION environment variable is required when using database mappings');
     }
-    const mappingLoader = new MappingLoader(dbConnection, dbSchema);
-    this.treeItems = await mappingLoader.loadMappings();
-    mappingLoader.close();
+    const themesLoader = new ThemesLoader(dbConnection, dbSchema);
+    this.treeItems = await themesLoader.loadThemes();
+    themesLoader.close();
+  }
+
+  addItemToState(state: State, item: TreeItem, order: number, checked = 1) {
+    if (item.parent_ids.length > 0) {
+      const parentId = item.parent_ids.pop();
+      let parentItem = state.layers!.find(layer => layer.id === parentId);
+      console.log(`Adding item to state: ${item.name} (parent: ${parentItem})`);
+      if (!parentItem) {
+        const parentTreeItem = this.treeItems.find(ti => ti.id === parentId);
+        if (!parentTreeItem) {
+          logger.error(`Parent item with id ${parentId} not found for item ${item.name}`);
+          return;
+        }
+        parentTreeItem.parent_ids = item.parent_ids;
+        let parentItemId = this.addItemToState(state, parentTreeItem, order, 0);
+        parentItem = state.layers!.find(layer => layer.id === parentItemId);
+        console.log(`Now: ${item.name} (parent: ${parentItem})`);
+      }
+      const newItem = {
+        id: item.id,
+        order: order,
+        checked: checked,
+        isExpanded: 1,
+        children: [],
+        excludedChildrenIds: []
+      }
+      parentItem!.children.push(newItem);
+      return item.id;
+    }
+
   }
 
   parseUrl(url: string): State {
     const urlObj = new URL(url);
     const params = urlObj.searchParams;
-    const state: State = {};
+    const state: State = {
+      unconvertedParts: []
+    };
+
+    //TODO: no_redirect??
+
+    // LANG is not shared
+    if (params.has('lang')) {
+      params.delete('lang');
+    }
 
     // BASELAYER
     if (params.has('baselayer_ref')) {
@@ -44,25 +83,7 @@ export class NgeoParser {
       params.delete('baselayer_ref');
     }
 
-    // DEFAULT PROJECTION
-
-    // THEME
-    const pathMatch = urlObj.pathname.match(/\/theme\/([^/?]+)/);
-    if (pathMatch) {
-      state.layers = [
-        {
-          id: this.treeItems.find(item => item.name === pathMatch[1])?.id || 0,
-          order: 1,
-          checked: 0,
-          isExpanded: 1,
-          children: [],
-          excludedChildrenIds: []
-        }
-      ]
-    }
-
     // MAP POSITION
-    
     if (params.has('map_x') && params.has('map_y')) {
       const mapX = parseFloat(params.get('map_x')!);
       const mapY = parseFloat(params.get('map_y')!);
@@ -77,6 +98,120 @@ export class NgeoParser {
       };
       params.delete('map_x');
       params.delete('map_y');
+    }
+
+    state.layers = [];
+    const not_found_layers: string[] = [];
+    let order = 1000
+
+    // THEME
+    let previousThemeId: number | null = null;
+    const pathMatch = urlObj.pathname.match(/\/theme\/([^/?]+)/);
+    if (pathMatch) {
+      const themeId = this.treeItems.find(item => item.name === pathMatch[1])?.id;
+      if (pathMatch && themeId) {
+        state.layers.push({
+          id: themeId,
+          order: order++,
+          checked: 0,
+          isExpanded: 1,
+          children: [],
+          excludedChildrenIds: []
+        });
+        previousThemeId = themeId;
+      }
+    }
+
+    // LAYERS
+    for (const key of Array.from(params.keys())) {
+      const value = params.get(key) || '';
+      console.log(`Parsing param: ${key} = ${value}`);
+      if (key === 'theme') {
+        const themeId = this.treeItems.find(item => item.name === value)?.id;
+        if (!themeId) {
+          not_found_layers.push(value);
+        } else if ( previousThemeId !== themeId ) {
+          previousThemeId = themeId;
+          state.layers.push({
+            id: themeId,
+            order: order++,
+            checked: 0,
+            isExpanded: 1,
+            children: [],
+            excludedChildrenIds: []
+          });
+        }
+        params.delete(key);
+        continue
+      }
+      if (key == 'tree_groups') {
+        const groups = value.split(',');
+        for (const groupName of groups) {
+          const groupId = this.treeItems.find(item => item.name === groupName)?.id;
+          if (!groupId) {
+            not_found_layers.push(groupName);
+            continue
+          }
+          const layer = {
+            id: groupId,
+            order: order++,
+            checked: 0,
+            //TODO:
+            isExpanded: 1,
+            children: [],
+            excludedChildrenIds: []
+          }
+          if (previousThemeId !== null) {
+            const parentTheme = state.layers.find(layer => layer.id === previousThemeId);
+            parentTheme?.children.push(layer);
+          } else {
+            state.layers.push(layer);
+          }
+        }
+        params.delete(key);
+        continue;
+      }
+      if (key.startsWith('tree_group_layers_')) {
+        const groupName = key.replace('tree_group_layers_', '');
+        const groupId = this.treeItems.find(item => item.name === groupName)?.id;
+        if (value && groupId) {
+          const parentGroup = state.layers.find(layer => layer.id === groupId);
+          const itemId = this.treeItems.find(item => item.name === value)?.id;
+          if (!itemId) {
+            not_found_layers.push(value);
+          } else {
+            parentGroup?.children.push({
+              id: itemId,
+              order: order++,
+              checked: 1,
+              isExpanded: 1,
+              children: [],
+              excludedChildrenIds: []
+            });
+          }
+        }
+        params.delete(key);
+        continue
+      }
+      if (key.startsWith('tree_enable_')) {
+        const itemName = key.replace('tree_enable_', '');
+        let item;
+        if (previousThemeId !== null) {
+          item = this.treeItems.find(item => item.name === itemName && item.parent_ids.includes(previousThemeId as number));
+        } else {
+          item = this.treeItems.find(item => item.name === itemName);
+        }
+        if (!item) {
+          not_found_layers.push(value);
+        } else {
+          this.addItemToState(state, structuredClone(item), order++);
+          params.delete(key);
+        }
+      }
+    }
+
+    if (not_found_layers.length > 0) {
+      state.unconvertedParts!.push(`Layers not found in DB: ${not_found_layers.join(', ')}`);
     }
 
     const dimensions: Record<string, string> = {};
@@ -104,6 +239,7 @@ export class NgeoParser {
     if (params.has('rl_features')) {
       state.features = params.get('rl_features')!;
     }
+
 
     if (params.keys().next().done === false) {
       logger.info('Unprocessed URL parameters remain:');
