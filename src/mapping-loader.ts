@@ -47,8 +47,8 @@ export class MappingLoader {
         -- Keep only paths that goes to the last parent possible
         SELECT DISTINCT
             pp.treeitem_id as id,
-          pp.treeitem_name as name,
-          pp.treeitem_type as type,
+            pp.treeitem_name as name,
+            pp.treeitem_type as type,
             pp.parent_ids
         FROM parent_paths pp
         LEFT JOIN ${this.schema}.layergroup_treeitem parent_check

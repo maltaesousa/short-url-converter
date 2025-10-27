@@ -16,7 +16,8 @@ function handleResult(result: ConversionResult, logger: Logger) {
 async function main() {
   const args = process.argv.slice(2);
 
-  const dbSchema = process.env.DB_STATIC_SCHEMA || 'main_static';
+  const dbSchema = process.env.DB_MAIN_SCHEMA;
+  const dbStaticSchema = process.env.DB_MAIN_STATIC_SCHEMA;
   const dbConnection = process.env.DB_CONNECTION || '';
   const inputSource = process.env.INPUT_SOURCE || 'database';
   const srid = process.env.SRID;
@@ -32,7 +33,30 @@ async function main() {
     console.log('  npm start --batch         - Batch mode: convert all URLs');
     console.log('  npm start --test <ref>    - Test mode: use test.json');
     console.log('  npm start --test --batch  - Test batch mode: use test.json');
+    console.log('  npm start --export-themes  - Export DB themes to CSV');
     process.exit(1);
+  }
+
+  // Export themes from DB
+  if (args[0] === '--export-themes') {
+    const filename = 'themes.csv';
+    const { MappingLoader } = await import('./mapping-loader');
+    const mappingLoader = new MappingLoader(dbConnection, dbSchema);
+    try {
+      const treeItems = await mappingLoader.loadMappings();
+      // Write CSV
+      const fs = await import('fs');
+      const header = 'id,name,type,parent_ids\n';
+      const rows = treeItems.map(item => `${item.id},"${item.name}",${item.type},"[${item.parent_ids.join(',')}]"`).join('\n');
+      fs.writeFileSync(filename, header + rows + '\n', 'utf-8');
+      console.log(`Mapping exported to ${filename}`);
+    } catch (error) {
+      console.error('Failed to export mapping:', error);
+      process.exit(1);
+    } finally {
+      await mappingLoader.close();
+    }
+    process.exit(0);
   }
 
   process.env.DEBUG = !args.includes('--batch') ? 'true' : 'false';
@@ -112,7 +136,7 @@ async function main() {
     const dbHandler = new DatabaseHandler(dbConnection);
 
     try {
-      const records = await dbHandler.getAllRecords(dbSchema);
+      const records = await dbHandler.getAllRecords(dbStaticSchema);
       const results = await converter.convertBatch(records);
 
       const stats: ConversionStats = {
@@ -154,7 +178,7 @@ async function main() {
       const dbHandler = new DatabaseHandler(dbConnection);
 
       try {
-        const record = await dbHandler.getRecord(ref, dbSchema);
+        const record = await dbHandler.getRecord(ref, dbStaticSchema);
 
         if (!record) {
           logger.error(`Record with ref ${ref} not found in database`);

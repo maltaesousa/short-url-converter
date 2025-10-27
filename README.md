@@ -28,7 +28,8 @@ cp .env.example .env
 Edit `.env` with your configuration:
 - `ORIGIN_URL`: Base URL to match (e.g., `https://sitn.ne.ch`)
 - `DESTINATION_URL`: Destination base URL (e.g., `https://demo.geogirafe.dev/sitn`)
-- `DB_SCHEMA`: Database schema (e.g., `main`)
+- `DB_MAIN_SCHEMA`: Database main schema (e.g., `main`)
+- `DB_MAIN_STATIC_SCHEMA`: Database schema (e.g., `main_static`)
 - `DB_CONNECTION`: PostgreSQL connection string
 - `INPUT_SOURCE`: `database` or `json` (defaults to `database`)
 
