@@ -23,27 +23,22 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-export interface DrawingFeatureData {
-  n: string;        // name
-  sc: string;       // strokeColor
-  sw: number;       // strokeWidth
-  fc: string;       // fillColor
-  ls: string;       // lineStroke
-  as: string;       // arrowStyle
-  ap: string;       // arrowPosition
-  nfz: number;      // nameFontSize
-  mfz: number;      // measureFontSize
-  f: string;        // font
-  g: object;        // geojson
-  dn: boolean;      // displayName
-  dm: boolean;      // displayMeasure
-  nc: string;       // nameColor
-  mc: string;       // measureColor
-  s: boolean;       // selected
-  t: number;        // type (DrawingShape)
+import { DrawingFeatureData } from "./types";
+
+const ArrowStyle = {
+  none: 'none',
+  forward: 'end',
+  backward: 'start',
+  both: 'both'
 }
 
-export enum DrawingShape {
+const ArrowPosition = {
+  last: 'mid',
+  every: 'each',
+  first: 'whole'
+}
+
+enum DrawingShape {
   Point = 0,
   Polyline = 1,
   Polygon = 2,
@@ -133,7 +128,23 @@ export class FeatureConverter {
     const geomType = text[0];
     const coordsText = text.substring(2, text.length - 1);
 
+    console.log('geomType:', geomType, 'coordsText:', coordsText);
+
     const coords = this.decodeCoordinates(coordsText, context);
+
+    if (geomType === 'p') {
+      return {
+        type: geomType,
+        coordinates: coords[0]
+      };
+    }
+
+    if (geomType === 'a') {
+      return {
+        type: geomType,
+        coordinates: [coords]
+      };
+    }
 
     return {
       type: geomType,
@@ -175,11 +186,6 @@ export class FeatureConverter {
 
       const coord = [context.prevX * this.accuracy, context.prevY * this.accuracy];
       coords.push(coord);
-    }
-
-    if (coords.length === 1) {
-      // For a single point, return number[]
-      return coords[0];
     }
 
     return coords;
@@ -244,17 +250,17 @@ export class FeatureConverter {
 
     const drawingFeature: DrawingFeatureData = {
       n: feature.properties?.n || feature.properties?.n || `${drawingShape} ${counter++}`,
-      sc: feature.properties?.c ? feature.properties?.c : '#3399CC',
+      sc: this.getStrokeColor(feature),
       sw: feature.style?.strokeWidth !== undefined ? parseFloat(feature.style.strokeWidth) : defaultStrokeWidth,
-      fc: feature.style?.fillColor ? this.parseColor(feature.style.fillColor) : '#3399CC',
+      fc: this.getFillColor(feature),
       ls: 'full',
-      as: 'none',
-      ap: 'whole',
+      as: feature.properties?.d ? ArrowStyle[feature.properties.d as keyof typeof ArrowStyle] : ArrowStyle.none,
+      ap: feature.properties?.p ? ArrowPosition[feature.properties.p as keyof typeof ArrowPosition] : ArrowPosition.last,
       nfz: 14,
       mfz: 12,
       f: 'Arial',
       g: geojson,
-      dn: feature.properties?.b === 'true',
+      dn: feature.properties?.b === 'true' ? feature.properties?.b === 'true' : feature.properties?.t === 'true',
       dm: feature.properties?.m === 'true',
       nc: '#000000',
       mc: '#000000',
@@ -265,18 +271,40 @@ export class FeatureConverter {
     return drawingFeature;
   }
 
+  private getStrokeColor(feature: any): string {
+    let color = '#3399CCFF'; // Default stroke color
+    if (feature.properties?.c) {
+      color = decodeURIComponent(feature.properties?.c);
+    }
+    if (feature.properties?.t === 'true') {
+      // It's a text feature
+      color = '#00000000';
+    }
+    return color;
+  }
+
+  private getFillColor(feature: any): string {
+    let color = '#3399CC'; // Default fill color
+    if (feature.properties?.c) {
+      color = decodeURIComponent(feature.properties?.c);
+    }
+
+    let opacity = 0.2; // Default opacity
+    if (feature.properties?.o) {
+      opacity = parseFloat(feature.properties.o);
+    }
+    const alpha = Math.round(opacity * 255);
+    const alphaHex = alpha.toString(16).padStart(2, '0').toUpperCase();
+    return `${color}${alphaHex}`;
+  }
+
   private mapGeometryTypeToDrawingShape(geomType: string): DrawingShape | null {
     const typeMap: Record<string, DrawingShape> = {
       'p': DrawingShape.Point,
-      'Point': DrawingShape.Point,
       'l': DrawingShape.Polyline,
-      'LineString': DrawingShape.Polyline,
       'L': DrawingShape.Polyline,
-      'MultiLineString': DrawingShape.Polyline,
       'a': DrawingShape.Polygon,
-      'Polygon': DrawingShape.Polygon,
       'A': DrawingShape.Polygon,
-      'MultiPolygon': DrawingShape.Polygon
     };
 
     return typeMap[geomType] ?? null;
@@ -292,9 +320,5 @@ export class FeatureConverter {
     };
 
     return normalizeMap[geomType] || geomType;
-  }
-
-  private parseColor(color: string): string {
-    return decodeURI(color);
   }
 }
