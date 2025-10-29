@@ -7,12 +7,18 @@ Convert ngeo-style shared URLs to geogirafe-style compressed hash URLs.
 - ✅ Location (map_zoom, map_x and map_y)
 - ✅ Single projection
 - ✅ Base layer
-- ✅ Layertree
+- Layertree:
     - ✅ Themes
     - ✅ Groups and layers
     - ✅ Checked layers
     - ❌ Opacity
     - ❌ Filters
+- Drawing:
+    - ✅ Simple geometries
+    - ✅ Styles
+    - ✅ Texts
+    - ✅ Circles
+    - ⚠️ Rectangles -> Polygons
 - ❌ selected features
 - ❌ no_redirect -> not supported by GG yet
 
