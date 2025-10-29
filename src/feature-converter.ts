@@ -24,6 +24,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import { DrawingFeatureData } from "./types";
+import { approximateCircle } from "./utils";
 
 const ArrowStyle = {
   none: 'none',
@@ -47,6 +48,14 @@ enum DrawingShape {
   Disk = 5,
   FreehandPolyline = 6,
   FreehandPolygon = 7
+}
+
+type GeoJson = {
+  type: string;
+  geometry?: any;
+  center?: [number, number];
+  radius?: number;
+  properties?: any;
 }
 
 const CHAR64 = '.-_!*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghjkmnpqrstuvwxyz';
@@ -81,7 +90,7 @@ export class FeatureConverter {
 
   // Example p(36zth-ngu4S~n*Point%201'c*%23DB4436'a*0'o*0.2'm*false'b*false's*10'k*2~pointRadius*13'fillColor*%23ffffff'pointRadius*10'fillColor*%23db4436)
   private parseFeature(text: string, context: { prevX: number; prevY: number }): any | null {
-    const geomType = text[0];
+    let geomType = text[0];
     const splitIndex = text.indexOf('~');
 
     const geometryText = splitIndex >= 0 ? text.substring(0, splitIndex) + ')' : text;
@@ -230,20 +239,31 @@ export class FeatureConverter {
     }
 
     const geomType = feature.geometry.type || feature.type;
-    const drawingShape = this.mapGeometryTypeToDrawingShape(geomType);
 
-    if (drawingShape === null) {
-      return null;
-    }
-
-    const geojson = {
+    let geojson: GeoJson = {
       type: 'Feature',
       geometry: {
-        type: this.normalizeGeometryType(geomType),
-        coordinates: feature.geometry.coordinates
-      },
+          type: this.normalizeGeometryType(geomType),
+          coordinates: feature.geometry.coordinates
+        },
       properties: feature.properties || {}
     };
+
+    if (geomType === 'a') {
+      if (feature.properties.l === 'true') {
+        // It's a disk!
+        const circleGeom = approximateCircle(feature.geometry.coordinates[0]);
+        geojson.geometry = {
+          type: 'Disk',
+          center: circleGeom.center,
+          radius: circleGeom.radius
+        };
+      }
+      if (feature.properties.r === 'true') {
+        // It's a rectangle! Not supported yet
+      }
+    }
+    const drawingShape = this.mapGeometryTypeToDrawingShape(geojson.geometry.type);
 
     let counter = 0;
     const defaultStrokeWidth = drawingShape === DrawingShape.Point ? 12 : 2;
@@ -298,16 +318,18 @@ export class FeatureConverter {
     return `${color}${alphaHex}`;
   }
 
-  private mapGeometryTypeToDrawingShape(geomType: string): DrawingShape | null {
+  private mapGeometryTypeToDrawingShape(geomType: string): DrawingShape {
     const typeMap: Record<string, DrawingShape> = {
-      'p': DrawingShape.Point,
-      'l': DrawingShape.Polyline,
-      'L': DrawingShape.Polyline,
-      'a': DrawingShape.Polygon,
-      'A': DrawingShape.Polygon,
+      'Point': DrawingShape.Point,
+      'LineString': DrawingShape.Polyline,
+      'MultiLineString': DrawingShape.Polyline,
+      'Polygon': DrawingShape.Polygon,
+      'MultiPolygon': DrawingShape.Polygon,
+      'Disk': DrawingShape.Disk,
+      'Rectangle': DrawingShape.Rectangle,
     };
 
-    return typeMap[geomType] ?? null;
+    return typeMap[geomType];
   }
 
   private normalizeGeometryType(geomType: string): string {
@@ -316,7 +338,7 @@ export class FeatureConverter {
       'l': 'LineString',
       'L': 'MultiLineString',
       'a': 'Polygon',
-      'A': 'MultiPolygon'
+      'A': 'MultiPolygon',
     };
 
     return normalizeMap[geomType] || geomType;
