@@ -14,5 +14,17 @@
   {
     "ref": "plans_eaux",
     "url": "https://sitn.ne.ch/theme/eaux?lang=fr&map_x=2550050&map_y=1205000&map_zoom=1&baselayer_ref=blank&tree_group_layers_gp_photos_360=&theme=eaux&tree_groups=gp_eaux%2Cgp_base_layers&tree_enable_ex04_plans_eau=true"
+  },
+  {
+    "ref": "point",
+    "url": "https://sitn.ne.ch/theme/main?map_x=2559139&map_y=1212124&map_zoom=12&rl_features=Fp(36zth-ngu4S~n*Point%25201%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~pointRadius*13%27fillColor*%2523ffffff%27pointRadius*10%27fillColor*%2523db4436)"
+  },
+  {
+    "ref": "arrows",
+    "url": "https://sitn.ne.ch/theme/main?map_x=2559124&map_y=1212149&map_zoom=14&rl_features=Fl(ynyth-9su4S5DkB~d*both%27p*first%27n*Ligne%25201%27c*%2523db4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~strokeColor*%2523db4436%27strokeWidth*2%27fontSize*20px%27fontColor*%2523db4436%27fontSize*20px%27fontColor*%2523db4436)l(xCzB5DnB~d*forward%27p*first%27n*Ligne%25202%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~strokeColor*%2523db4436%27strokeWidth*2%27fontSize*20px%27fontColor*%2523db4436)l(rCvB1DkB~d*backward%27p*first%27n*Ligne%25203%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~strokeColor*%2523db4436%27strokeWidth*2%27fontSize*20px%27fontColor*%2523db4436)l(rB2D1!k_u-e-w*q_~d*forward%27p*every%27n*Ligne%25204%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~strokeColor*%2523db4436%27strokeWidth*2%27fontSize*20px%27fontColor*%2523db4436%27fontSize*20px%27fontColor*%2523db4436%27fontSize*20px%27fontColor*%2523db4436)"
+  },
+  {
+    "ref": "drawing",
+    "url": "https://sitn.ne.ch/theme/main?map_x=2556582&map_y=1204268&map_zoom=12&rl_features=Fp(h3dsh-9c2zR~n*Point%25201%27c*%2523DB4436%27a*0%27o*0.2%27m*true%27b*false%27s*10%27k*2~pointRadius*10%27fillColor*%2523db4436%27fontSize*10pt%27fontColor*%2523333333)l(q*3-q1-hC~d*both%27p*first%27n*Ligne%25202%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*5~strokeColor*%2523db4436%27strokeWidth*5%27fontSize*20px%27fontColor*%2523db4436%27fontSize*20px%27fontColor*%2523db4436)a(8YmHZm!uZqC~n*Polygone%25203%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*true%27s*10%27k*2~fillColor*%2523db4436%27strokeColor*%2523db4436%27strokeWidth*2%27fontSize*10pt%27fontColor*%2523333333)a(pS2O-J-L!J!JAJCHEHEFEFGFGDIBI*I*K_I_K-I-I!I!IAGCGEGEEECGCGAIAI!I-K.I.K_I*IBIBIDIDGFEHEHCHCJCJ!J!J-L.J.L_J*J*JDHDHDFFFFFHDJBJ*J*J_J~l*true%27z*133.67079151845735%27n*Cercle%25204%27c*%25230BA9CC%27a*0%27o*0.05%27m*false%27b*false%27s*10%27k*2~fillColor*%25230ba9cc%27strokeColor*%25230ba9cc%27strokeWidth*2)p(9I7A~t*true%27n*Coucou%27c*%2523000000%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~fontSize*10pt%27fontColor*%2523000000)"
   }
 ]

@@ -49,24 +49,7 @@ export class UrlConverter {
     this.logger.debug('Parsed ngeo state:');
     this.logger.debug(JSON.stringify(state, null, 2));
 
-
-    let ngeoFeatures = undefined;
-    let drawingFeatures = {};
-    /* TODO
-    if (State.features) {
-      try {
-        ngeoFeatures = this.ngeoParser.decodeFeatureHash(ngeoState.features);
-        drawingFeatures = this.featureConverter.convertNgeoFeaturesToDrawing(ngeoFeatures);
-        if (debug && drawingFeatures && drawingFeatures.length > 0) {
-          this.logger.debug(`Converted ${drawingFeatures.length} drawing features`);
-        }
-      } catch (error) {
-        console.warn(`[WARN] [${ref}] Could not convert drawing features: ${error}`);
-      }
-    }*/
-    this.logger.debug('Converted geogirafe state (position, layers, etc.)');
-  
-    const convertedUrl = await this.ggSerializer.serializeToUrl(state, drawingFeatures, this.destinationUrl);
+    const convertedUrl = await this.ggSerializer.serializeToUrl(state, this.destinationUrl);
     this.logger.debug(`Converted URL: ${convertedUrl}`);
     this.logger.logConverted(ref, convertedUrl);
     if (state.unconvertedParts && state.unconvertedParts.length > 0) {

@@ -1,12 +1,17 @@
 import { State } from './state';
-import {ExtendedState } from './types';
+import { ExtendedState } from './types';
 import * as LZString from 'lz-string';
 
 export class GeoGirafeSerializer {
-  constructor() {}
+  constructor() { }
 
-  async serializeToUrl(state: State, extendedState: ExtendedState, baseUrl: string): Promise<string> {
+  async serializeToUrl(state: State, baseUrl: string): Promise<string> {
 
+    let extendedState: ExtendedState = {} as ExtendedState;
+    if (state.features) {
+      extendedState.drawing = JSON.stringify(state.features);
+    }
+    delete state.features;
     const serializedState = {} as Record<string, any>;
     const keys = Object.keys(state)
     for (const key of keys) {
@@ -14,7 +19,7 @@ export class GeoGirafeSerializer {
     }
 
     const stateJson = JSON.stringify(serializedState);
-    const extendedStateJson = this.serializeExtendedState(extendedState);
+    const extendedStateJson = JSON.stringify(extendedState);
 
     const compressedState = LZString.compressToBase64(stateJson);
     const compressedExtendedState = LZString.compressToBase64(extendedStateJson);
@@ -22,12 +27,5 @@ export class GeoGirafeSerializer {
     const fullCompressed = LZString.compressToBase64(`${compressedState}-${compressedExtendedState}`);
 
     return `${baseUrl}#${fullCompressed}`;
-  }
-
-  private serializeExtendedState(extendedState: ExtendedState): string {
-    if (!extendedState || Object.keys(extendedState).length === 0) {
-      return JSON.stringify({});
-    }
-    return JSON.stringify(extendedState);
   }
 }

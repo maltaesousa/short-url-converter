@@ -40,9 +40,7 @@ export interface GeoGirafePosition {
 }
 
 export interface ExtendedState {
-  drawing?: {
-    features: DrawingFeatureData[];
-  };
+  drawing: string;
 }
 
 export interface DrawingFeatureData {

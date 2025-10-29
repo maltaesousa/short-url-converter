@@ -1,3 +1,28 @@
+// Copy and adapted from ngeo FeatureHash
+//
+// https://github.com/camptocamp/ngeo/blob/master/src/format/FeatureHash.js
+//
+// The MIT License (MIT)
+//
+// Copyright (c) 2015-2025 Camptocamp SA
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+// the Software, and to permit persons to whom the Software is furnished to do so,
+// subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+// IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 export interface DrawingFeatureData {
   n: string;        // name
   sc: string;       // strokeColor
@@ -29,7 +54,153 @@ export enum DrawingShape {
   FreehandPolygon = 7
 }
 
+const CHAR64 = '.-_!*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghjkmnpqrstuvwxyz';
+
 export class FeatureConverter {
+  private accuracy = 0.1;
+
+  decodeFeatureHash(text: string): any[] {
+    const features: any[] = [];
+    let remainingText = text.substring(1);
+    let prevX = 0;
+    let prevY = 0;
+
+    while (remainingText.length > 0) {
+      const closeParenIndex = remainingText.indexOf(')');
+      if (closeParenIndex < 0) break;
+
+      const featureText = remainingText.substring(0, closeParenIndex + 1);
+      const feature = this.parseFeature(featureText, { prevX, prevY });
+
+      if (feature) {
+        features.push(feature);
+        prevX = feature.prevX || prevX;
+        prevY = feature.prevY || prevY;
+      }
+
+      remainingText = remainingText.substring(closeParenIndex + 1);
+    }
+
+    return features;
+  }
+
+  // Example p(36zth-ngu4S~n*Point%201'c*%23DB4436'a*0'o*0.2'm*false'b*false's*10'k*2~pointRadius*13'fillColor*%23ffffff'pointRadius*10'fillColor*%23db4436)
+  private parseFeature(text: string, context: { prevX: number; prevY: number }): any | null {
+    const geomType = text[0];
+    const splitIndex = text.indexOf('~');
+
+    const geometryText = splitIndex >= 0 ? text.substring(0, splitIndex) + ')' : text;
+    const geometry = this.parseGeometry(geometryText, context);
+
+    const properties: any = {};
+    let style: any = null;
+
+    const rest = text.substring(splitIndex + 1, text.length - 1);
+    const styleSplitIndex = rest.indexOf('~');
+
+    const propsText = styleSplitIndex >= 0 ? rest.substring(0, styleSplitIndex) : rest;
+    if (propsText) {
+      const parts = propsText.split("'");
+      for (const part of parts) {
+        if (part) {
+          const decoded = decodeURIComponent(part);
+          const keyVal = decoded.split('*');
+          if (keyVal.length === 2) {
+            properties[keyVal[0]] = keyVal[1];
+          }
+        }
+      }
+    }
+
+    console.log('Parsed properties:', properties);
+
+    if (styleSplitIndex >= 0) {
+      const styleText = rest.substring(styleSplitIndex + 1);
+      style = this.parseStyle(styleText);
+    }
+
+    return {
+      type: geomType,
+      geometry,
+      properties,
+      style,
+      prevX: context.prevX,
+      prevY: context.prevY
+    };
+  }
+
+  private parseGeometry(text: string, context: { prevX: number; prevY: number }): any {
+    const geomType = text[0];
+    const coordsText = text.substring(2, text.length - 1);
+
+    const coords = this.decodeCoordinates(coordsText, context);
+
+    return {
+      type: geomType,
+      coordinates: coords
+    };
+  }
+
+  private decodeCoordinates(text: string, context: { prevX: number; prevY: number }): number[] | number[][] {
+    const coords: number[][] = [];
+    let index = 0;
+
+    while (index < text.length) {
+      let b: number;
+      let shift = 0;
+      let result = 0;
+
+      do {
+        b = CHAR64.indexOf(text.charAt(index++));
+        if (b < 0) break;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 32 && index < text.length);
+
+      const dx = result & 1 ? ~(result >> 1) : result >> 1;
+      context.prevX += dx;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = CHAR64.indexOf(text.charAt(index++));
+        if (b < 0) break;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 32 && index < text.length);
+
+      const dy = result & 1 ? ~(result >> 1) : result >> 1;
+      context.prevY += dy;
+
+      const coord = [context.prevX * this.accuracy, context.prevY * this.accuracy];
+      coords.push(coord);
+    }
+
+    if (coords.length === 1) {
+      // For a single point, return number[]
+      return coords[0];
+    }
+
+    return coords;
+  }
+
+  private parseStyle(text: string): any {
+    const parts = text.split("'");
+    const style: any = {};
+
+    for (const part of parts) {
+      if (part) {
+        const keyVal = part.split('*');
+        if (keyVal.length === 2) {
+          style[keyVal[0]] = keyVal[1];
+        }
+      }
+    }
+
+    return style;
+  }
+
   convertNgeoFeaturesToDrawing(ngeoFeatures: any[]): DrawingFeatureData[] {
     const drawingFeatures: DrawingFeatureData[] = [];
 
@@ -54,7 +225,7 @@ export class FeatureConverter {
 
     const geomType = feature.geometry.type || feature.type;
     const drawingShape = this.mapGeometryTypeToDrawingShape(geomType);
-    
+
     if (drawingShape === null) {
       return null;
     }
@@ -68,12 +239,13 @@ export class FeatureConverter {
       properties: feature.properties || {}
     };
 
-    const name = feature.properties?.name || feature.properties?.title || 'Drawing';
-    
+    let counter = 0;
+    const defaultStrokeWidth = drawingShape === DrawingShape.Point ? 12 : 2;
+
     const drawingFeature: DrawingFeatureData = {
-      n: name,
-      sc: feature.style?.strokeColor ? this.parseColor(feature.style.strokeColor) : '#3399CC',
-      sw: feature.style?.strokeWidth !== undefined ? parseFloat(feature.style.strokeWidth) : 2,
+      n: feature.properties?.n || feature.properties?.n || `${drawingShape} ${counter++}`,
+      sc: feature.properties?.c ? feature.properties?.c : '#3399CC',
+      sw: feature.style?.strokeWidth !== undefined ? parseFloat(feature.style.strokeWidth) : defaultStrokeWidth,
       fc: feature.style?.fillColor ? this.parseColor(feature.style.fillColor) : '#3399CC',
       ls: 'full',
       as: 'none',
@@ -82,8 +254,8 @@ export class FeatureConverter {
       mfz: 12,
       f: 'Arial',
       g: geojson,
-      dn: feature.style?.name === 'true' || feature.style?.name === true || false,
-      dm: true,
+      dn: feature.properties?.b === 'true',
+      dm: feature.properties?.m === 'true',
       nc: '#000000',
       mc: '#000000',
       s: false,
@@ -123,15 +295,6 @@ export class FeatureConverter {
   }
 
   private parseColor(color: string): string {
-    if (color.startsWith('#')) {
-      return color;
-    }
-    
-    if (color.match(/^\d+$/)) {
-      const num = parseInt(color);
-      return `#${num.toString(16).padStart(6, '0')}`;
-    }
-    
-    return color;
+    return decodeURI(color);
   }
 }

@@ -1,4 +1,4 @@
-import { GeoGirafePosition, SharedLayer } from "./types";
+import { DrawingFeatureData, GeoGirafePosition, SharedLayer } from "./types";
 
 export class State {
   baselayer?: string;
@@ -6,7 +6,7 @@ export class State {
   position?: GeoGirafePosition;
   layers: SharedLayer[] = [];
   opacity?: Record<string, number>;
-  features?: string;
+  features?: DrawingFeatureData[];
   dimensions?: Record<string, string>;
   unconvertedParts: string[] = [];
   order = 1000;
