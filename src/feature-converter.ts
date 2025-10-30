@@ -23,6 +23,7 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import { Logger } from "./logger";
 import { DrawingFeatureData } from "./types";
 import { approximateCircle } from "./utils";
 
@@ -62,6 +63,8 @@ const CHAR64 = '.-_!*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghjkmnpqrstuvwxyz
 
 export class FeatureConverter {
   private accuracy = 0.1;
+  private logger = Logger.getInstance();
+  unconvertibleFeatures: any[] = [];
 
   decodeFeatureHash(text: string): any[] {
     const features: any[] = [];
@@ -116,7 +119,7 @@ export class FeatureConverter {
       }
     }
 
-    console.log('Parsed properties:', properties);
+    this.logger.debug('Parsed properties:', properties);
 
     if (styleSplitIndex >= 0) {
       const styleText = rest.substring(styleSplitIndex + 1);
@@ -137,7 +140,7 @@ export class FeatureConverter {
     const geomType = text[0];
     const coordsText = text.substring(2, text.length - 1);
 
-    console.log('geomType:', geomType, 'coordsText:', coordsText);
+    this.logger.debug(`geomType: ${geomType}, coordsText: ${coordsText}`);
 
     const coords = this.decodeCoordinates(coordsText, context);
 
@@ -226,7 +229,7 @@ export class FeatureConverter {
           drawingFeatures.push(drawingFeature);
         }
       } catch (error) {
-        console.error('Error converting feature:', error);
+        this.unconvertibleFeatures.push(feature);
       }
     }
 
@@ -260,7 +263,7 @@ export class FeatureConverter {
         };
       }
       if (feature.properties.r === 'true') {
-        // It's a rectangle! Not supported yet
+        this.logger.debug('Rectangle geometry detected, converting to polygon.');
       }
     }
     const drawingShape = this.mapGeometryTypeToDrawingShape(geojson.geometry.type);

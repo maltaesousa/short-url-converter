@@ -18,13 +18,14 @@ export class NgeoParser {
     this.olView = ViewManager.getOlView();
   }
 
-  async initialize() {
-    const dbConnection = process.env.DB_CONNECTION;
-    const dbSchema = process.env.DB_SCHEMA;
-
-    const themesLoader = new ThemesLoader(dbConnection, dbSchema);
-    this.treeItems = await themesLoader.loadThemes();
-    themesLoader.close();
+  async initialize() {    
+    if (!this.treeItems || this.treeItems.length === 0) {
+      const dbConnection = process.env.DB_CONNECTION;
+      const dbSchema = process.env.DB_SCHEMA;
+      const themesLoader = new ThemesLoader(dbConnection, dbSchema);
+      this.treeItems = await themesLoader.loadThemes();
+      themesLoader.close();
+    }
   }
 
   parseUrl(url: string): State {

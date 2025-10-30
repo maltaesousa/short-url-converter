@@ -1,6 +1,5 @@
 import { NgeoParser } from './ngeo-parser';
 import { GeoGirafeSerializer } from './geogirafe-serializer';
-import { FeatureConverter } from './feature-converter';
 import { Logger } from './logger';
 import { UrlRecord, ConversionResult } from './types';
 import * as dotenv from 'dotenv';
@@ -10,7 +9,6 @@ dotenv.config();
 export class UrlConverter {
   private ngeoParser: NgeoParser;
   private ggSerializer: GeoGirafeSerializer | null = null;
-  private featureConverter: FeatureConverter;
   private logger: Logger;
   private originUrl: string;
   private destinationUrl: string;
@@ -20,8 +18,7 @@ export class UrlConverter {
     this.destinationUrl = process.env.DESTINATION_URL;
     
     this.ngeoParser = new NgeoParser();
-    this.featureConverter = new FeatureConverter();
-    this.logger = new Logger();
+    this.logger = Logger.getInstance();
   }
 
   async convert(record: UrlRecord): Promise<ConversionResult> {
@@ -30,14 +27,14 @@ export class UrlConverter {
 
     const { ref, url } = record;
     
-    this.logger.debug(`Converting URL for ref: ${ref}`);
-    this.logger.debug(`Original URL: ${url}`);
+    this.logger.info(`Converting URL for ref: ${ref}`);
+    this.logger.info(`Original URL: ${url}`);
 
     if (!url.startsWith(this.originUrl)) {
       return {
         ref,
         success: false,
-        error: `${url} does not match configured ORIGIN_URL: ${this.originUrl}`
+        error: `URL origin does not match`
       };
     }
 

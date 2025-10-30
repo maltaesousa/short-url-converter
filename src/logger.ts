@@ -1,19 +1,26 @@
 import { appendFileSync, writeFileSync, existsSync } from 'fs';
 
 export class Logger {
+  private static instance: Logger;
   private convertedCsvPath = './converted.csv';
   private reportPath = './report.csv';
   private debugMode: boolean;
 
-  constructor() {
+  private constructor() {
     this.debugMode = process.env.DEBUG === 'true' || false;
     if (!existsSync(this.convertedCsvPath)) {
       writeFileSync(this.convertedCsvPath, 'ref,new_url\n');
     }
-    
     if (!existsSync(this.reportPath)) {
       writeFileSync(this.reportPath, 'ref,status,issue\n');
     }
+  }
+
+  public static getInstance(): Logger {
+    if (!Logger.instance) {
+      Logger.instance = new Logger();
+    }
+    return Logger.instance;
   }
 
   logConverted(ref: string, newUrl: string): void {
