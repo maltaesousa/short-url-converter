@@ -38,5 +38,9 @@
   {
     "ref": "rectangles",
     "url": "https://sitn.ne.ch/theme/main?lang=fr&baselayer_ref=blank&map_x=2558720&map_y=1204005&map_zoom=10&theme=main&tree_groups=gp_base_layers&rl_features=Fa(h6mth-91wyRuBeF7V3MtBfF~r*true%27n*Orient%25C3%25A9%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*true%27s*10%27k*2%27angle*0~fillColor*%2523db4436%27strokeColor*%2523db4436%27strokeWidth*2%27fontSize*10pt%27fontColor*%2523333333)a(3y_kV.hCak-..gC~r*true%27n*Plat%27c*%2523DB4436%27a*0%27o*0.2%27m*false%27b*false%27s*10%27k*2~fillColor*%2523db4436%27strokeColor*%2523db4436%27strokeWidth*2)"
+  },
+  {
+    "ref": "opacity",
+    "url": "https://sitn.ne.ch/theme/main?lang=fr&map_x=2550050&map_y=1205000&map_zoom=1&baselayer_ref=blank&tree_groups=gp_base_layers&tree_enable_ortho2023=true&tree_enable_1-plan_ville=false&tree_opacity_ortho2023=0.38"
   }
 ]

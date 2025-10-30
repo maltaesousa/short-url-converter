@@ -142,8 +142,11 @@ export class NgeoParser {
         params.delete(key);
         continue;
       }
-      if (key.startsWith('tree_enable_')) {
-        const itemName = key.replace('tree_enable_', '');
+      // Special layers actions
+      const terms = ['tree_enable_', 'tree_opacity_'];
+      const matchedTerm = terms.find(term => key.startsWith(term));
+      if (matchedTerm) {
+        const itemName = key.replace(matchedTerm, '');
         // Find the group parent from foundGroupLayers
         let item = null;
         let parentGroup = null;
@@ -161,15 +164,31 @@ export class NgeoParser {
         if (!item) {
           item = this.treeItems.find(ti => ti.name === itemName);
         }
-        if (!item) {
-          not_found_layers.push(value);
-        } else if (parentGroup) {
-          this.state.addSubLayer(parentGroup, item.id, 1);
-        } else if (currentThemeLayer) {
-          this.state.addSubLayer(currentThemeLayer, item.id, 1);
+        const opacity = matchedTerm === 'tree_opacity_' ? parseFloat(value) : 1;
+        const checked = (matchedTerm === 'tree_enable_') ? (value === 'true' ? 1 : 0) : 1;
+
+        // If layer still exists and not already added, add it
+        if (item) {
+          const alreadyAdded = this.state.findLayerById(item.id);
+          if (alreadyAdded) {
+            if (matchedTerm === 'tree_opacity_') {
+              alreadyAdded.opacity = opacity;
+            }
+            if (matchedTerm === 'tree_enable_') {
+              alreadyAdded.checked = checked;
+            }
+          } else {
+            if (parentGroup) {
+              this.state.addSubLayer(parentGroup, item.id, checked, opacity);
+            } else if (currentThemeLayer) {
+              this.state.addSubLayer(currentThemeLayer, item.id, checked, opacity);
+            } else {
+              this.state.addLayer(item.id, checked, opacity);
+            }
+          }
         } else {
-          this.state.addLayer(item.id, 1);
-        }
+          not_found_layers.push(value);
+        } 
         params.delete(key);
       }
     }

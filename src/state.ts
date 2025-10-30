@@ -13,28 +13,44 @@ export class State {
 
   constructor() {}
 
-  createLayer(layerId: number, checked=0) {
+  createLayer(layerId: number, checked=0, opacity=1) {
     const layer = {
       id: layerId,
       order: this.order++,
       checked,
       isExpanded: 1,
       children: [],
-      excludedChildrenIds: []
+      excludedChildrenIds: [],
+      opacity
     }
     return layer;
   }
 
-  addLayer(layerId: number, checked=0): SharedLayer {
-    const layer = this.createLayer(layerId, checked);
+  addLayer(layerId: number, checked=0, opacity=1): SharedLayer {
+    const layer = this.createLayer(layerId, checked, opacity);
     this.layers.push(layer);
     return layer;
   }
 
-  addSubLayer(parentLayer: SharedLayer, layerId: number, checked=0): SharedLayer {
-    const layer = this.createLayer(layerId, checked);
+  addSubLayer(parentLayer: SharedLayer, layerId: number, checked=0, opacity=1): SharedLayer {
+    const layer = this.createLayer(layerId, checked, opacity);
     parentLayer.children.push(layer);
     return layer;
   }
 
+  findLayerById(layerId: number): SharedLayer | undefined {
+    const search = (layers: SharedLayer[]): SharedLayer | undefined => {
+      for (const layer of layers) {
+        if (layer.id === layerId) {
+          return layer;
+        }
+        const child = search(layer.children);
+        if (child) {
+          return child;
+        }
+      }
+      return undefined;
+    };
+    return search(this.layers);
+  }
 }
