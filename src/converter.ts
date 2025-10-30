@@ -27,8 +27,8 @@ export class UrlConverter {
 
     const { ref, url } = record;
     
-    this.logger.info(`Converting URL for ref: ${ref}`);
-    this.logger.info(`Original URL: ${url}`);
+    this.logger.debug(`Converting URL for ref: ${ref}`);
+    this.logger.debug(`Original URL: ${url}`);
 
     if (!url.startsWith(this.originUrl)) {
       return {
@@ -60,9 +60,24 @@ export class UrlConverter {
     };
   }
 
+  printProgress(current: number, total: number) {
+    const barLength = 30;
+    const percent = Math.floor((current / total) * 100);
+    const filled = Math.floor((current / total) * barLength);
+    const bar = '='.repeat(filled) + '-'.repeat(barLength - filled);
+    process.stdout.write(`\r[${bar}] ${percent}% (${current}/${total})`);
+    if (current === total) {
+      process.stdout.write('\n');
+    }
+  }
+
   async convertBatch(records: UrlRecord[]): Promise<ConversionResult[]> {
     const results: ConversionResult[] = [];
-    
+    const total = records.length;
+    let processed = 0;
+
+
+
     for (const record of records) {
       try {
         const result = await this.convert(record);
@@ -75,8 +90,10 @@ export class UrlConverter {
           error: String(error)
         });
       }
+      processed++;
+      this.printProgress(processed, total);
     }
-    
+
     return results;
   }
 }

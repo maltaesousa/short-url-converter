@@ -3,6 +3,7 @@ import { DatabaseHandler, JsonHandler } from './input-handlers';
 import { UrlConverter } from './converter';
 import { Logger } from './logger';
 import { ConversionResult, ConversionStats } from './types';
+import { ThemesLoader } from './themes-loader';
 
 loadEnv();
 
@@ -40,7 +41,6 @@ async function main() {
   // Export themes from DB
   if (args[0] === '--export-themes') {
     const filename = 'themes.csv';
-    const { ThemesLoader } = await import('./themes-loader');
     const themesLoader = new ThemesLoader(dbConnection, dbSchema);
     try {
       const treeItems = await themesLoader.loadThemes();

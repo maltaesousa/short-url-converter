@@ -7,7 +7,7 @@ import { State } from './state';
 import { FeatureConverter } from './feature-converter';
 
 
-const logger = new Logger();
+const logger = Logger.getInstance();
 
 export class NgeoParser {
   private treeItems: TreeItem[] = [];
@@ -21,7 +21,7 @@ export class NgeoParser {
   async initialize() {    
     if (!this.treeItems || this.treeItems.length === 0) {
       const dbConnection = process.env.DB_CONNECTION;
-      const dbSchema = process.env.DB_SCHEMA;
+      const dbSchema = process.env.DB_MAIN_SCHEMA;
       const themesLoader = new ThemesLoader(dbConnection, dbSchema);
       this.treeItems = await themesLoader.loadThemes();
       themesLoader.close();
@@ -45,7 +45,7 @@ export class NgeoParser {
       const baselayerName = params.get('baselayer_ref')!;
       const baselayerId = this.treeItems.find(item => item.name === baselayerName)?.id;
       if (!baselayerId) {
-        logger.info(`Baselayer '${baselayerName}' not found in db, will set background to id: 0`);
+        logger.debug(`Baselayer '${baselayerName}' not found in db, will set background to id: 0`);
       }
       this.state.baselayer = String(baselayerId || 0);
       params.delete('baselayer_ref');
@@ -133,7 +133,7 @@ export class NgeoParser {
           }
           const itemId = this.treeItems.find(item => item.name === value)?.id;
           if (!itemId) {
-            not_found_layers.push(value);
+            not_found_layers.push(groupName);
           } else {
             const layer = this.state.createLayer(itemId, 1);
             parentGroup?.children.push(layer);
@@ -214,7 +214,7 @@ export class NgeoParser {
     }
 
     if (params.keys().next().done === false) {
-      logger.info('Unprocessed URL parameters remain:');
+      logger.debug('Unprocessed URL parameters remain:');
       this.state.unconvertedParts = params.toString().split('&');
     }
 

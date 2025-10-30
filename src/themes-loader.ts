@@ -29,7 +29,6 @@ export class ThemesLoader {
       }
       const content = fs.readFileSync(path, 'utf-8');
       const lines = content.trim().split('\n');
-      const header = lines[0].split(',');
       const treeItems: TreeItem[] = [];
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
