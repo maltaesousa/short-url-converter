@@ -29,7 +29,7 @@ export class Logger {
   }
 
   logUnconvertible(ref: string, parts: string[]): void {
-    const logEntry = `"${ref}","PARTIALLY_CONVERTED","${parts.join(';')}"\n`;
+    const logEntry = `"${ref}","PARTIALLY OR NOT CONVERTED","${parts.join(';')}"\n`;
     appendFileSync(this.reportPath, logEntry);
   }
 
