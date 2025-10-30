@@ -59,8 +59,9 @@ async function main() {
     process.exit(0);
   }
 
-  process.env.DEBUG = !args.includes('--batch') ? 'true' : 'false';
+  const debugMode = !args.includes('--batch')
   const logger = Logger.getInstance();
+  logger.setDebugMode(debugMode);
 
   const converter = new UrlConverter();
 

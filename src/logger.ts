@@ -4,10 +4,9 @@ export class Logger {
   private static instance: Logger;
   private convertedCsvPath = './converted.csv';
   private reportPath = './report.csv';
-  private debugMode: boolean;
+  private debugMode?: boolean;
 
   private constructor() {
-    this.debugMode = process.env.DEBUG === 'true' || false;
     if (!existsSync(this.convertedCsvPath)) {
       writeFileSync(this.convertedCsvPath, '');
     }
@@ -23,6 +22,10 @@ export class Logger {
       Logger.instance = new Logger();
     }
     return Logger.instance;
+  }
+
+  setDebugMode(debugMode: boolean): void {
+    this.debugMode = debugMode;
   }
 
   logConverted(ref: string, newUrl: string): void {
