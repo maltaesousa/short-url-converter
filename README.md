@@ -11,7 +11,8 @@ Convert ngeo-style shared URLs to geogirafe-style compressed hash URLs.
     - ✅ Themes
     - ✅ Groups and layers
     - ✅ Checked layers
-    - ❌ Opacity
+    - ✅ Opacity
+    - ❌ Group opacity
     - ❌ Filters
 - Drawing:
     - ✅ Simple geometries
@@ -21,7 +22,6 @@ Convert ngeo-style shared URLs to geogirafe-style compressed hash URLs.
     - ⚠️ Rectangles -> Polygons
 - ❌ selected features
 - ❌ no_redirect -> not supported by GG yet
-
 
 ## Setup
 
@@ -63,19 +63,28 @@ Convert all URLs (batch mode):
 npm start -- --batch
 ```
 
+Export themes in a CSV (for debugging purpose):
+```bash
+npm start -- --export-themes
+```
+
+Will create a `themes.csv` with layer hierarchy.
+
 ## Output Files
 
 ### converted.csv
 CSV file with successfully converted URLs:
+
 ```csv
 ref,new_url
 test1,https://demo.geogirafe.dev/sitn#IwBgPg3gRAxgpgOwC5wE5QFwG0BMBWPEIkAGmBxEKIF0SpU4BnAewBsBXJAS2YU2AB0eAL5gs0LgBN+dZqkloZsABZwYAazjSMwOl0YBRAB4AHAIYIF23Sq6tJDPtlpQ4RmBysBhZXYeIASUlGTCxqYWogA=
 ```
 
-### unconvertible.log
-Log file for unconvertible parts due to missing ID mappings:
-```
-[2025-01-13T10:30:00.000Z] REF: test5
-Original URL: https://sitn.ne.ch/theme/unknown_theme
-Unconvertible parts: theme: unknown_theme (no ID mapping), layer: unknown_layer (no ID mapping)
+### report.csv
+
+Log file for unconvertible parts:
+
+```csv
+ref,status,issue
+"0038r","PARTIALLY OR NOT CONVERTED","Layers not found in DB: gp_mo_cadastre"
 ```
