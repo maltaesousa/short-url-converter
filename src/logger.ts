@@ -9,11 +9,13 @@ export class Logger {
   private constructor() {
     this.debugMode = process.env.DEBUG === 'true' || false;
     if (!existsSync(this.convertedCsvPath)) {
-      writeFileSync(this.convertedCsvPath, 'ref,new_url\n');
+      writeFileSync(this.convertedCsvPath, '');
     }
-    if (!existsSync(this.reportPath)) {
-      writeFileSync(this.reportPath, 'ref,status,issue\n');
+    writeFileSync(this.convertedCsvPath, 'ref,new_url\n');
+    if (existsSync(this.reportPath)) {
+      writeFileSync(this.reportPath, '');
     }
+    writeFileSync(this.reportPath, 'ref,status,issue\n');
   }
 
   public static getInstance(): Logger {
